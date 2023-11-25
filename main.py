@@ -1,37 +1,33 @@
 import asyncio
 import functools
 
-from .protocol.abstract import AbstractProtocol
-from .publisher.abstract_publisher import AbstractPublisher
-from .publisher.publisher import RedisPublisher
-from .status.server.connection import ClientConnectionsKeeper
-from .status.server.server import ServerKeeper
-from .unit.unit import UnitCommunication
-from .server_conn import ServerConnection
-from .protocol import protocols
+from src.protocol import protocols
+from src.protocol.abstract import AbstractProtocol
+
+from src.publisher.abstract import AbstractPublisher
+from src.publisher.redis.publisher import RedisPublisher
+from src.status.server_status.connection import ClientConnectionsKeeper
+from src.status.server_status.server import ServerKeeper
+from src.unit.unit import UnitCommunication
+from src.server_conn import ClientConnection
 
 
 def pre_run_server_connection(func):
     async def exception_analyze(
-            self,
-            reader,
-            writer,
-            protocol_handler,
+            *args,
             client_conn_keeper,
-            server_status,
-            publisher
+            **kwargs
     ):
-        client_conn = ServerConnection(reader=reader, writer=writer)
-        unit = UnitCommunication(protocol_handler=protocol_handler)
+        self, reader, writer = args
+        client_conn = ClientConnection(reader=reader, writer=writer)
         client_conn_keeper.add(asyncio.current_task())
 
         try:
+            print('pre connect')
             return await func(
-                self=self,
-                server_status=server_status,
+                self,
                 client_conn=client_conn,
-                unit=unit,
-                publisher=publisher
+                **kwargs
             )
         except NotImplementedError:
             print(f"Warning! Method not implemented")
@@ -54,9 +50,9 @@ class Server:
     async def run_server_connection(
             self,
             server_status: ServerKeeper,
-            client_conn: ServerConnection,
-            unit: UnitCommunication,
-            publisher: AbstractPublisher
+            client_conn: ClientConnection,
+            protocol_handler: AbstractProtocol,
+            publisher: AbstractPublisher,
     ):
         """
         Main loop of client connection
@@ -70,6 +66,9 @@ class Server:
         4) if status is correct make answer for unit
         5) repeat 1) -> 2) ....
         """
+        print('new connect')
+        unit = UnitCommunication(protocol_handler=protocol_handler)
+
         await asyncio.sleep(0)
         while server_status.is_work or client_conn.new_data:
 
@@ -108,22 +107,23 @@ async def task_server_run(
 ):
     """
     Run all protocol in one process
-    The server is always running until the stop command arrives (SIGINT, SIGTERM)
+    The server_status is always running until the stop command arrives (SIGINT, SIGTERM)
     """
-    client_conn = ClientConnectionsKeeper()
+    print('run task serving')
+    client_conn_keeper = ClientConnectionsKeeper()
     redis_publisher = RedisPublisher()
 
     serv_func = functools.partial(
         Server().run_server_connection,
         protocol_handler=protocol_handler,
         server_status=server_status,
-        client_conn_keeper=client_conn,
+        client_conn_keeper=client_conn_keeper,
         publisher=redis_publisher
     )
 
     task_server = await asyncio.start_server(
         serv_func,
-        host='127.0.0.1',
+        host='0.0.0.0',
         port=port,
         reuse_address=True,
         backlog=5_000
@@ -132,16 +132,19 @@ async def task_server_run(
     server_status.add_protocol_connection(task_server)
     await task_server.start_serving()
 
+    print('start serving', port)
     while task_server.is_serving():
         await asyncio.sleep(1)
 
-    await client_conn.try_stop()
+    await client_conn_keeper.try_stop()
 
 
 async def main():
     server_status = ServerKeeper()
 
+    print('run server')
     async with asyncio.TaskGroup() as tg:
+        print('protocols', protocols)
         for protocol in protocols:
             tg.create_task(
                 task_server_run(
@@ -151,6 +154,7 @@ async def main():
                 )
             )
 
-    print(f"Server stop")
+    print("Server stop")
 
-asyncio.run(main(), debug=True)
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -2,11 +2,12 @@ from datetime import datetime
 from time import time
 from typing import Optional
 
-from ...protocol.abstract import AbstractProtocol
+
 from fastcrc import crc16
 
-from ...status.auth import StatusAuth
-from ...status.parsing import StatusParsing
+from ..abstract import AbstractProtocol
+from src.status.auth import StatusAuth
+from src.status.parsing import StatusParsing
 
 
 class WialonIPSv2(AbstractProtocol):

@@ -1,9 +1,9 @@
 from typing import Optional
 
-from redis import asyncio as aioredis
+import aio_pika
 import orjson
 
-from ..publisher.abstract_publisher import AbstractSingleton
+from src.publisher.abstract import AbstractPublisher
 
 
 def check_connection(func):
@@ -15,13 +15,13 @@ def check_connection(func):
     return wrapper
 
 
-class RedisPublisher(AbstractSingleton):
+class RedisPublisher(AbstractPublisher):
 
     def __init__(self):
         self._conn = None
 
     def connect(self):
-        self._conn = aioredis.from_url("redis://localhost")
+        self._conn = aio_pika.connect("redis://localhost")
 
     @check_connection
     async def publish_to_destination(

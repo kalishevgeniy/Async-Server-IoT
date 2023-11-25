@@ -1,5 +1,5 @@
 from typing import Optional
-from ..protocol.abstract import AbstractProtocol
+from src.protocol.abstract import AbstractProtocol
 
 
 class BufferMixin:

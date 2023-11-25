@@ -1,9 +1,7 @@
 from typing import Optional
 
-from ..protocol.interface import ProtocolInterface
-from ..status.auth import StatusAuth
-from ..status.except_status import StatusException
-from ..status.parsing import StatusParsing
+from src.status import StatusAuth, StatusException, StatusParsing
+from .interface import ProtocolInterface
 
 
 class AbstractProtocol(ProtocolInterface):

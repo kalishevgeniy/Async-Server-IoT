@@ -1,9 +1,7 @@
 from abc import abstractmethod, ABCMeta
 from typing import Optional
 
-from ..status.auth import StatusAuth
-from ..status.except_status import StatusException
-from ..status.parsing import StatusParsing
+from src.status import StatusAuth, StatusException, StatusParsing
 
 
 class ProtocolInterface(object, metaclass=ABCMeta):

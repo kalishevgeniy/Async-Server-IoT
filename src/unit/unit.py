@@ -1,36 +1,31 @@
 from typing import Optional
 
-from ..protocol.abstract import AbstractProtocol
-from ..status.abstract import Status
-from ..status.auth import StatusAuth
-from ..status.except_status import StatusException, exception_unit_wrapper
-from ..status.parsing import StatusParsing
-from ..unit.buffer import BufferMixin
+from .buffer import BufferMixin
+from src.protocol.abstract import AbstractProtocol
+from src.status.abstract import Status
+from src.status.auth import StatusAuth
+from src.status.except_status import StatusException, exception_unit_wrapper
+from src.status.parsing import StatusParsing
+from src.auth.authorization import Auth
 
 
 class UnitCommunication(BufferMixin):
 
-    __slots__ = (
-        '_handler',
-        '_is_authorized', '_imei',
-        '_pass', '_meta'
-    )
+    __slots__ = '_handler', '_auth', '_meta'
 
     def __init__(self, protocol_handler, *args, **kwargs):
         super().__init__(protocol_handler, *args, **kwargs)
         self._handler: AbstractProtocol = protocol_handler
 
-        self._is_authorized: bool = False
-        self._imei: Optional[str] = None
-        self._pass: Optional[str] = None
+        self._auth = Auth()
         self._meta: dict = dict()
 
     @property
-    def get_imei(self):
-        return self._imei
+    def imei(self):
+        return self._auth.imei
 
     def get_packet(self) -> bytes:
-        if self._is_authorized:
+        if self._auth.is_authorized:
             return self.get_full_data_packet()
         else:
             return self.get_full_data_login_packet()
@@ -44,7 +39,7 @@ class UnitCommunication(BufferMixin):
         :param packet: bytes
         :return: tuple[Status, Optional[list[dict]]
         """
-        if self._is_authorized:
+        if self._auth.is_authorized:
             return self._analyze_data_packet(packet)
         else:
             return self._analyze_login_packet(packet)
@@ -98,12 +93,12 @@ class UnitCommunication(BufferMixin):
         status.crc = self._handler.check_crc_login(login_packet)
         self._meta = self._handler.parsing_login_packet(login_packet)
 
-        self._imei = self._handler.get_imei(self._meta)
-        status.authorization = self._authorized_in_system()
-        print(f"Unit: {self._imei} Auth status {status.authorization}")
+        imei = self._handler.get_imei(self._meta)
+        status.authorization = self._auth.authorized_in_system(imei)
+        print(f"Unit: {imei} Auth status {status.authorization}")
 
-        self._pass = self._handler.get_password(self._meta)
-        status.password = self._check_password()
+        password = self._handler.get_password(self._meta)
+        status.password = self._auth.check_password(imei, password)
 
         return status, None
 
@@ -128,20 +123,3 @@ class UnitCommunication(BufferMixin):
         )
 
         return status, packets
-
-    def _authorized_in_system(self) -> bool:
-        """
-        method to check unit in the system for message with login packet
-        for connection with imei in all message need use another method
-        :return: bool (True - unit in system, False - unit not in system)
-        """
-        self._is_authorized = True
-        return self._is_authorized
-
-    def _check_password(self) -> bool:
-        """
-        Check password unit
-        :return:
-        """
-        self._pass = True
-        return self._pass

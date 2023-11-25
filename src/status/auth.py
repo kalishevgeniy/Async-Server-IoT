@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ..status.abstract import Status
+from .abstract import Status
 
 
 class StatusAuth(Status):

@@ -3,7 +3,7 @@ from asyncio import StreamReader, StreamWriter
 from asyncio import Queue
 
 
-class ServerConnection:
+class ClientConnection:
 
     __slots__ = (
         "reader", "writer",

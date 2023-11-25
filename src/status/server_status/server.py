@@ -1,18 +1,10 @@
 import signal
 from asyncio import Event
 
-
-class Singleton(type):
-    _instance = None
-
-    def __call__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instance
-
+from src.utils.singleton import Singleton
 
 """
-Is used to monitor the state of the server.
+Is used to monitor the state of the server_status.
 The singleton pattern is used to make it possible to call the class
 anywhere in the application
 """
@@ -30,7 +22,7 @@ class ServerKeeper(metaclass=Singleton):
 
     def add_protocol_connection(self, conn):
         """
-        Add all server run connection
+        Add all server_status run connection
         :param conn:
         :return:
         """
@@ -38,7 +30,7 @@ class ServerKeeper(metaclass=Singleton):
 
     def _close_server_connection(self):
         """
-        Make close connection if server stop self work
+        Make close connection if server_status stop self work
         :return:
         """
         for conn in self._server_sockets:
@@ -51,7 +43,7 @@ class ServerKeeper(metaclass=Singleton):
         :param frame:
         :return:
         """
-        print(f"Send signal {_signal}. Try stop server")
+        print(f"Send signal {_signal}. Try stop server_status")
         self._close_server_connection()
         self._is_work.clear()
 

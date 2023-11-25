@@ -3,8 +3,8 @@ from typing import Optional
 from ..abstract import AbstractProtocol
 import struct
 
-from ...status.auth import StatusAuth
-from ...status.parsing import StatusParsing
+from src.status.auth import StatusAuth
+from src.status.parsing import StatusParsing
 from fastcrc import crc16
 from itertools import islice
 

@@ -1,10 +1,8 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod, ABCMeta
 from typing import Optional
 
-from ..status.server.server import Singleton
 
-
-class AbstractPublisher(ABC):
+class _InterfacePublisher(metaclass=ABCMeta):
 
     @abstractmethod
     async def connect(self):
@@ -23,5 +21,5 @@ class AbstractPublisher(ABC):
         """
 
 
-class AbstractSingleton(metaclass=Singleton):
-    pass
+class InterfacePublisher:
+    __metaclass__ = _InterfacePublisher
