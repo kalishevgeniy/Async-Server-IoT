@@ -1,4 +1,5 @@
 import asyncio
+from src.utils.logger import Logger
 
 
 class ClientConnectionsKeeper:
@@ -22,7 +23,7 @@ class ClientConnectionsKeeper:
         try:
             await asyncio.wait_for(task, 30)
         except asyncio.TimeoutError:
-            print(f"Warning! Task {task} Need cancel")
+            Logger().warning(f"Warning! Task {task} Need cancel")
             task.cancel()
 
     async def try_stop(self):

@@ -13,7 +13,7 @@ class _InterfacePublisher(metaclass=ABCMeta):
     @abstractmethod
     async def publish_to_destination(
             self,
-            data: Optional[list[dict]],
+            messages: Optional[list[dict]],
             imei: str
     ):
         """

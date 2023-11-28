@@ -1,15 +1,19 @@
 import asyncio
 import functools
 
+from src.config import Publisher
 from src.protocol import protocols
 from src.protocol.abstract import AbstractProtocol
 
 from src.publisher.abstract import AbstractPublisher
 from src.publisher.redis.publisher import RedisPublisher
+
 from src.status.server_status.connection import ClientConnectionsKeeper
 from src.status.server_status.server import ServerKeeper
+
 from src.unit.unit import UnitCommunication
 from src.server_conn import ClientConnection
+from src.utils.logger import Logger
 
 
 def pre_run_server_connection(func):
@@ -23,16 +27,15 @@ def pre_run_server_connection(func):
         client_conn_keeper.add(asyncio.current_task())
 
         try:
-            print('pre connect')
             return await func(
                 self,
                 client_conn=client_conn,
                 **kwargs
             )
-        except NotImplementedError:
-            print(f"Warning! Method not implemented")
+        except NotImplementedError as e:
+            Logger().exception(f"Warning! Method not implemented {e}")
         except Exception as e:
-            print(f"Unknown exception! {e}")
+            Logger().exception(f"Unknown exception! {e}")
         finally:
             # make soft disconnect
             await client_conn.close_connection()
@@ -66,7 +69,6 @@ class Server:
         4) if status is correct make answer for unit
         5) repeat 1) -> 2) ....
         """
-        print('new connect')
         unit = UnitCommunication(protocol_handler=protocol_handler)
 
         await asyncio.sleep(0)
@@ -90,7 +92,7 @@ class Server:
                     break
 
                 answer = unit.create_answer(status)
-                await publisher.publish_to_destination(data, unit.get_imei)
+                await publisher.publish_to_destination(data, unit.imei)
                 await client_conn.send_to_unit(answer)
 
             else:
@@ -109,16 +111,15 @@ async def task_server_run(
     Run all protocol in one process
     The server_status is always running until the stop command arrives (SIGINT, SIGTERM)
     """
-    print('run task serving')
     client_conn_keeper = ClientConnectionsKeeper()
-    redis_publisher = RedisPublisher()
+    publisher = Publisher.class_publisher()
 
     serv_func = functools.partial(
         Server().run_server_connection,
         protocol_handler=protocol_handler,
         server_status=server_status,
         client_conn_keeper=client_conn_keeper,
-        publisher=redis_publisher
+        publisher=publisher
     )
 
     task_server = await asyncio.start_server(
@@ -126,13 +127,14 @@ async def task_server_run(
         host='0.0.0.0',
         port=port,
         reuse_address=True,
+        reuse_port=True,
         backlog=5_000
     )
 
     server_status.add_protocol_connection(task_server)
     await task_server.start_serving()
 
-    print('start serving', port)
+    Logger().debug(f'Start serving {protocol_handler} {port}')
     while task_server.is_serving():
         await asyncio.sleep(1)
 
@@ -142,10 +144,10 @@ async def task_server_run(
 async def main():
     server_status = ServerKeeper()
 
-    print('run server')
+    Logger().info('Run server IOT')
     async with asyncio.TaskGroup() as tg:
-        print('protocols', protocols)
         for protocol in protocols:
+            Logger().info(f'Init protocol {protocol}')
             tg.create_task(
                 task_server_run(
                     port=protocol.PORT,
@@ -154,7 +156,7 @@ async def main():
                 )
             )
 
-    print("Server stop")
+    Logger().info('Stop server IOT')
 
 if __name__ == '__main__':
     asyncio.run(main())

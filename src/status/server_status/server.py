@@ -1,6 +1,7 @@
 import signal
 from asyncio import Event
 
+from src.utils.logger import Logger
 from src.utils.singleton import Singleton
 
 """
@@ -43,7 +44,7 @@ class ServerKeeper(metaclass=Singleton):
         :param frame:
         :return:
         """
-        print(f"Send signal {_signal}. Try stop server_status")
+        Logger().info(f"Send signal {_signal}. Try stop server_status")
         self._close_server_connection()
         self._is_work.clear()
 

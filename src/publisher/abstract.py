@@ -14,7 +14,7 @@ class AbstractPublisher(InterfacePublisher, metaclass=Singleton):
     @abstractmethod
     async def publish_to_destination(
             self,
-            data: Optional[list[dict]],
+            messages: Optional[list[dict]],
             imei: str
     ):
         raise NotImplementedError

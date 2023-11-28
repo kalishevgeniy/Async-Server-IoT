@@ -110,17 +110,7 @@ class BufferMixin:
         start_bp = self._handler.start_bit_packet
         end_bp = self._handler.end_bit_packet
 
-        if not start_bp or not end_bp:
-            start, end = self._handler.custom_start_end_packet(self._message)
-
-            if len(self._message) < end:
-                return None
-
-            message_return = self._message[start:end]
-            self.clear_buffer(end)
-
-            return message_return
-        else:
+        if start_bp and end_bp:
             start = self._message.find(start_bp)
             end = self._message.find(end_bp)
 
@@ -135,3 +125,14 @@ class BufferMixin:
                 return message
             else:
                 return bytes()
+
+        else:
+            start, end = self._handler.custom_start_end_packet(self._message)
+
+            if len(self._message) < end:
+                return None
+
+            message_return = self._message[start:end]
+            self.clear_buffer(end)
+
+            return message_return

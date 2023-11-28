@@ -1,6 +1,7 @@
 from typing import Optional
 
 from .abstract import Status
+from src.utils.logger import Logger
 
 
 class StatusException(Status):
@@ -30,7 +31,7 @@ def exception_unit_wrapper(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Parsing exception {e}")
+            Logger().warning(f"Parsing exception {e}")
             status = StatusException()
             status.error = True
             status.type = type(e)

@@ -7,6 +7,7 @@ from src.status.auth import StatusAuth
 from src.status.except_status import StatusException, exception_unit_wrapper
 from src.status.parsing import StatusParsing
 from src.auth.authorization import Auth
+from ..utils.logger import Logger
 
 
 class UnitCommunication(BufferMixin):
@@ -95,7 +96,7 @@ class UnitCommunication(BufferMixin):
 
         imei = self._handler.get_imei(self._meta)
         status.authorization = self._auth.authorized_in_system(imei)
-        print(f"Unit: {imei} Auth status {status.authorization}")
+        Logger().trace(f"Unit: {imei} Auth status {status.authorization}")
 
         password = self._handler.get_password(self._meta)
         status.password = self._auth.check_password(imei, password)

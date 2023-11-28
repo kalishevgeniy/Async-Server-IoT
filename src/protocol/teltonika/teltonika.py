@@ -8,6 +8,8 @@ from src.status.parsing import StatusParsing
 from fastcrc import crc16
 from itertools import islice
 
+from ...utils.logger import Logger
+
 
 def batched(iterable, n):
     """Batch data into lists of length n. The last batch may be shorter."""
@@ -79,7 +81,7 @@ class Teltonika(AbstractProtocol):
             case 0x8e:
                 packets = self._parsing_codec_8e(bytes_data[6:-5])
             case _:
-                print("Warning, unknown codec_id!")
+                Logger().debug("Warning, unknown codec_id!")
                 packets = list()
 
         return packets, metadata

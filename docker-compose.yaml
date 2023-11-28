@@ -4,11 +4,13 @@ version: "3.1"
 services:
     rabbitmq:
       image: rabbitmq:3.12.8-management
+      hostname: rabbitmq
       ports:
+        - "5672:5672"
         - "15672:15672"
-      environment:
-        -RABBITMQ_USER: $RABBITMQ_USER
-        -RABBITMQ_PASS_FILE: $RABBITMQ_PASS_FILE
+
+      env_file: service.env
+
     server:
       build:
         dockerfile: src/Dockerfile
