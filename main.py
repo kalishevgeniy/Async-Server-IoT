@@ -112,7 +112,7 @@ async def task_server_run(
     The server_status is always running until the stop command arrives (SIGINT, SIGTERM)
     """
     client_conn_keeper = ClientConnectionsKeeper()
-    publisher = Publisher.class_publisher()
+    publisher = Publisher().class_publisher
 
     serv_func = functools.partial(
         Server().run_server_connection,
@@ -147,7 +147,6 @@ async def main():
     Logger().info('Run server IOT')
     async with asyncio.TaskGroup() as tg:
         for protocol in protocols:
-            Logger().info(f'Init protocol {protocol}')
             tg.create_task(
                 task_server_run(
                     port=protocol.PORT,

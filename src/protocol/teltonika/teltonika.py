@@ -27,6 +27,9 @@ class Teltonika(AbstractProtocol):
     _START_BIT_LOGIN = b'\x00'
     _START_BIT_PACKET = b'\x00\x00\x00\x00'
 
+    def __str__(self):
+        return 'Teltonika'
+
     def custom_start_end_login(self, data: bytes) -> tuple[int, int]:
         return 2, struct.unpack('>H', data[:2])[0] + 2
 

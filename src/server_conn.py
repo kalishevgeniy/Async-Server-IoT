@@ -77,7 +77,10 @@ class ClientConnection:
         """
         self.writer.close()
         try:
-            await asyncio.wait_for(self.writer.wait_closed(), 15)
+            await asyncio.wait_for(
+                self.writer.wait_closed(),
+                15
+            )
         except TimeoutError:
             self._task_reader.cancel()
 

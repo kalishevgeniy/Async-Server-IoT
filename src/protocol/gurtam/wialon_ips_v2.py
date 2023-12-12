@@ -21,6 +21,9 @@ class WialonIPSv2(AbstractProtocol):
 
     _EMPTY = b'NA'
 
+    def __str__(self):
+        return 'WialonIPSv2'
+
     def parsing_login_packet(self, bytes_data: bytes) -> dict:
         _, _, data = bytes_data.split(b'#')
         protocol_version, imei, password, _ = data.split(b';')
