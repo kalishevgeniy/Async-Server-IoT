@@ -8,7 +8,7 @@ from src.status.parsing import StatusParsing
 from fastcrc import crc16
 from itertools import islice
 
-from ...utils.logger import Logger
+import logging
 
 
 def batched(iterable, n):
@@ -22,8 +22,6 @@ def batched(iterable, n):
 
 
 class Teltonika(AbstractProtocol):
-    PORT: int = 20_001
-
     _START_BIT_LOGIN = b'\x00'
     _START_BIT_PACKET = b'\x00\x00\x00\x00'
 
@@ -80,7 +78,7 @@ class Teltonika(AbstractProtocol):
             case 0x8e:
                 packets = self._parsing_codec_8e(bytes_data[6:-5])
             case _:
-                Logger().debug("Warning, unknown codec_id!")
+                logging.debug("Warning, unknown codec_id!")
                 packets = list()
 
         return packets, metadata

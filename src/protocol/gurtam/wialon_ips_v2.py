@@ -5,14 +5,12 @@ from typing import Optional
 
 from fastcrc import crc16
 
-from ..abstract import AbstractProtocol
+from src.protocol.abstract import AbstractProtocol
 from src.status.auth import StatusAuth
 from src.status.parsing import StatusParsing
 
 
 class WialonIPSv2(AbstractProtocol):
-    PORT: int = 20_000
-
     _START_BIT_PACKET: bytes = b'#'
     _END_BIT_PACKET: bytes = b'\r\n'
 
@@ -44,13 +42,24 @@ class WialonIPSv2(AbstractProtocol):
         crc = login_packet[-6:-2]
         return int(crc, 16) == crc16.arc(body)
 
-    def check_crc_data(self, data_packet: bytes) -> bool:
+    def check_crc_data(
+            self,
+            data_packet: bytes
+    ) -> bool:
         return self.check_crc_login(login_packet=data_packet)
 
-    def answer_login_packet(self, status: StatusAuth, meta: dict) -> bytes:
+    def answer_login_packet(
+            self,
+            status: StatusAuth,
+            metadata: dict
+    ) -> bytes:
         return b'#AL#1\r\n'
 
-    def answer_failed_login_packet(self, status: StatusAuth, metadata: dict) -> Optional[bytes]:
+    def answer_failed_login_packet(
+            self,
+            status: StatusAuth,
+            metadata: dict
+    ) -> Optional[bytes]:
         if status.error or status.authorization or status.crc:
             return b'#AL#0\r\n'
         elif status.password:
@@ -108,10 +117,12 @@ class WialonIPSv2(AbstractProtocol):
         return parameters
 
     def _parse_packet_d(self, data: bytes) -> dict:
-        (date, _time,
-         lat, lat_dir, lon, lon_dir,
-         speed, course, alt, sats, hdop,
-         inputs, outputs, adc, ibutton, params, _) = data.split(b';', 17)
+        (
+            date, _time,
+            lat, lat_dir, lon, lon_dir,
+            speed, course, alt, sats, hdop,
+            inputs, outputs, adc, ibutton, params, _
+        ) = data.split(b';', 17)
 
         parameters = dict()
         parameters.update(self._get_base_data(

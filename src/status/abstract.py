@@ -1,6 +1,11 @@
-from typing import Protocol
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
-from src.protocol.abstract import AbstractProtocol
+
+if TYPE_CHECKING:
+    from ..protocol.abstract import AbstractProtocol
+
+from typing import Protocol
 
 
 class Status(Protocol):

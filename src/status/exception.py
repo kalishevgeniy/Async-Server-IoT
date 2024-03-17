@@ -1,12 +1,15 @@
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, TYPE_CHECKING
+
 
 from .abstract import Status
-from src.utils.logger import Logger
-from ..protocol.abstract import AbstractProtocol
+import logging
+
+if TYPE_CHECKING:
+    from ..protocol.abstract import AbstractProtocol
 
 
 class StatusException(Status):
-
     __slots__ = 'err', 'err_type', 'err_args', 'err_str', 'err_func_name'
 
     def __init__(self):
@@ -42,7 +45,7 @@ def exception_unit_wrapper(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            Logger().warning(
+            logging.warning(
                 f"Parsing exception {e} {args} {kwargs} {func.__name__}"
             )
             status = StatusException()

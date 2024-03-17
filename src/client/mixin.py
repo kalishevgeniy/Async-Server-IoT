@@ -1,7 +1,7 @@
 import asyncio
 from asyncio import StreamReader, StreamWriter, Queue
 
-from src.utils.logger import Logger
+import logging
 
 
 class ReadeWriterMixin:
@@ -80,12 +80,18 @@ class ReadeWriterMixin:
         :return: None
         """
         self.writer.close()
+
         try:
-            await self.writer.wait_closed()
+            await asyncio.wait_for(
+                self.writer.wait_closed(),
+                timeout=10
+            )
             self._task_reader.cancel()
+        except asyncio.TimeoutError:
+            logging.debug('Close client connection')
         except ConnectionResetError as e:
             _exception = self._task_reader.exception()
-            Logger().trace(f"Exception {e} \r\n Task exception {_exception}")
+            logging.debug(f"Exception {e} \r\n Task exception {_exception}")
 
     async def send_to_unit(self, data: bytes):
         """

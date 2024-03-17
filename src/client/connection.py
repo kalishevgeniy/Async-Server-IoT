@@ -26,7 +26,7 @@ class ClientConnection(ReadeWriterMixin):
         super().__init__(*args, **kwargs)
 
     def __hash__(self):
-        return asyncio.current_task()
+        return asyncio.current_task().__hash__()
 
     async def run_client_loop(self):
         """
@@ -42,8 +42,8 @@ class ClientConnection(ReadeWriterMixin):
         5) repeat 1) -> 2) ....
         """
         unit = Unit(
-            protocol_handler=self.protocol,
-            authorization=self.authorization,
+            protocol=self.protocol,
+            authorization=self.authorization
         )
 
         await asyncio.sleep(0)

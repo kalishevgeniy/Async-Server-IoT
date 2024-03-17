@@ -57,7 +57,7 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     ) -> bytes:
         """
         :param status:
-        :param meta:
+        :param metadata:
         :return:
         """
 

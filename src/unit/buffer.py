@@ -14,9 +14,7 @@ class BufferMixin:
     def update_buffer(self, _bytes: bytes):
         if len(self._message) > self._max_buffer_size:
             raise Exception  # todo add custom exception
-        self.add_message_to_buffer(_bytes)
 
-    def append_received_message(self, _bytes: bytes):
         self._message += _bytes
 
     @property
@@ -37,40 +35,7 @@ class BufferMixin:
         else:
             self._message = bytes()
 
-    def add_message_to_buffer(self, b_data: bytes):
-        """
-        Add message to buffer. Check first bytes
-
-        send:  b'0xff\0x34\0x23'
-        start: b'0xff'
-
-        """
-        if (
-                not self.is_empty
-                or
-                (
-                        not self._handler.start_bit_login
-                        and
-                        not self._handler.start_bit_packet
-                )
-                or
-                (
-                        self._handler.start_bit_login
-                        and
-                        b_data.startswith(self._handler.start_bit_login)
-                )
-                or
-                (
-                        self._handler.start_bit_packet
-                        and
-                        b_data.startswith(self._handler.start_bit_packet)
-                )
-        ):
-            self.append_received_message(b_data)
-            return True
-        return False
-
-    def get_full_data_login_packet(self) -> Optional[bytes]:
+    def get_full_login_packet(self) -> Optional[bytes]:
         """
         Get correct login packet, using ProtocolHandler
         Clear buffer if data incorrect
@@ -102,19 +67,21 @@ class BufferMixin:
             end = self._message.find(end_bl)
 
             if -1 not in (start, end):
-                message_return = self._message[start:end+len(end_bl)]
-                self.clear_buffer(end+len(end_bl))
+                end = end+len(end_bl)
+
+                message_return = self._message[start:end]
+                self.clear_buffer(end)
                 return message_return
 
         self.clear_buffer()
         return None
 
-    def get_full_data_packet(self) -> Optional[bytes]:
-        start_bp = self._handler.start_bit_packet
-        end_bp = self._handler.end_bit_packet
-
+    def get_full_packet(self) -> Optional[bytes]:
         if not self._message:
             return None
+
+        start_bp = self._handler.start_bit_packet
+        end_bp = self._handler.end_bit_packet
 
         if start_bp and end_bp:
             start = self._message.find(start_bp)
@@ -133,7 +100,9 @@ class BufferMixin:
                 return bytes()
 
         else:
-            start, end = self._handler.custom_start_end_packet(self._message)
+            start, end = self._handler.custom_start_end_packet(
+                data=self._message
+            )
 
             if len(self._message) < end:
                 return None

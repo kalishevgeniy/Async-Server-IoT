@@ -7,7 +7,8 @@ from src.status.auth import StatusAuth
 from src.status.exception import exception_unit_wrapper
 from src.status.parsing import StatusParsing
 from ..auth.authorization import AbstractAuthorization
-from ..utils.logger import Logger
+
+import logging
 
 
 class Unit(BufferMixin):
@@ -16,14 +17,14 @@ class Unit(BufferMixin):
 
     def __init__(
             self,
-            protocol_handler,
+            protocol: AbstractProtocol,
             authorization: Optional[AbstractAuthorization],
             *args,
             **kwargs
     ):
-        super().__init__(protocol_handler, *args, **kwargs)
+        super().__init__(protocol, *args, **kwargs)
 
-        self._handler: AbstractProtocol = protocol_handler
+        self._handler: AbstractProtocol = protocol
         self._auth = authorization
 
         self.imei = None
@@ -33,9 +34,9 @@ class Unit(BufferMixin):
 
     def get_packet(self) -> bytes:
         if self.is_authorized:
-            return self.get_full_data_packet()
+            return self.get_full_packet()
         else:
-            return self.get_full_data_login_packet()
+            return self.get_full_login_packet()
 
     def analyze_packet(
             self,
@@ -77,23 +78,24 @@ class Unit(BufferMixin):
         status.crc = self._handler.check_crc_login(login_packet)
         self._meta = self._handler.parsing_login_packet(login_packet)
 
-        imei = self._handler.get_imei(self._meta)
+        self.imei = self._handler.get_imei(self._meta)
 
         if self._auth:
-            status.authorization = self._auth.authorized_in_system(imei)
+            status.authorization = self._auth.authorized_in_system(
+                imei=self.imei
+            )
             self.is_authorized = status.authorization
+
+            password = self._handler.get_password(self._meta)
+            status.password = self._auth.check_password(
+                imei=self.imei,
+                password=password)
         else:
             status.authorization = True
             self.is_authorized = True
-
-        Logger().trace(f"Unit: {imei} Auth status {status.authorization}")
-
-        password = self._handler.get_password(self._meta)
-
-        if self._auth:
-            status.password = self._auth.check_password(imei, password)
-        else:
             status.password = True
+
+        logging.debug(f"Unit: {self.imei} Auth status {status.authorization}")
 
         return status, None
 

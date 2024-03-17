@@ -1,11 +1,14 @@
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, TYPE_CHECKING
 
 from .abstract import Status
-from ..protocol.abstract import AbstractProtocol
+
+
+if TYPE_CHECKING:
+    from ..protocol.abstract import AbstractProtocol
 
 
 class StatusAuth(Status):
-
     __slots__ = "crc", "authorization", "password", "error"
 
     def __init__(self):

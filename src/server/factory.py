@@ -6,7 +6,8 @@ from src.auth.authorization import AbstractAuthorization
 from src.client.connection import ClientConnection
 from src.protocol.abstract import AbstractProtocol
 from src.utils.config import ServerConfig
-from src.utils.logger import Logger
+
+import logging
 
 
 class ServerFactory:
@@ -26,12 +27,18 @@ class ServerFactory:
         self._client_connections: set[ClientConnection] = set()
         self._msgs_queue = asyncio.Queue(config.queue_size)
 
-    async def get_msgs_iter(self):
+    async def msgs_iterator(self):
         while True:
             yield await self._msgs_queue.get()
 
     def exec_msgs(self):
-        return self._msgs_queue.get_nowait()
+        msgs = list()
+        while not self._msgs_queue.empty():
+            msgs.append(
+                self._msgs_queue.get_nowait()
+            )
+
+        return msgs
 
     async def run(self):
         self._task_server = await asyncio.start_server(
@@ -45,15 +52,14 @@ class ServerFactory:
         self._server_is_work.set()
 
     async def _soft_stop_server(self):
+        self._task_server.close()
         try:
             await asyncio.wait_for(
                 self._task_server.wait_closed(),
-                10
+                15
             )
         except asyncio.TimeoutError:
             print('Timeout error close socket')
-        finally:
-            self._task_server.close()
 
     async def _soft_close_client_connection(self):
         async with asyncio.TaskGroup() as tg:
@@ -91,13 +97,14 @@ class ServerFactory:
         try:
             await client_conn.run_client_loop()
         except NotImplementedError as e:
-            Logger().exception(f"Warning! Method not implemented {e}")
+            logging.exception(f"Warning! Method not implemented {e}")
         except Exception as e:
-            Logger().exception(f"Unknown exception! {e}")
+            logging.exception(f"Unknown exception! {e}")
         finally:
             # make soft disconnect
             await client_conn.close_connection()
 
             # remove curr task from event loop
             # use for keeping connection
+            logging.debug(f"Client disconnect {client_conn}")
             self._client_connections.remove(client_conn)

@@ -1,9 +1,14 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+
 from .abstract import Status
-from ..protocol.abstract import AbstractProtocol
+
+if TYPE_CHECKING:
+    from ..protocol.abstract import AbstractProtocol
 
 
 class StatusParsing(Status):
-
     __slots__ = "err", "crc"
 
     def __init__(self):
