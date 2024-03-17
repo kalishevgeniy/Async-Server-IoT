@@ -9,7 +9,7 @@ The server is written in such a way that each developer can add his own data tra
 
 Import the desired protocol from the `src.protocol` folder. Assign the server `host` and `port`, you can also pass any other arguments that the `asyncio` module's `start_server` method accepts, such as `reuse_address` or `ssl_shutdown_timeout`.
 
-```
+```python3
 import asyncio
 from src.protocol.gurtam.wialon_ips_v2 import WialonIPSv2
 from src.server.server import IoTServer
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
 To write your own protocol, you need to inherit from the `AbstractProtocol` class and implement its interface.
 
-```
+```python3
 from src.protocol.abstract import AbstractProtocol
 
 
