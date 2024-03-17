@@ -1,21 +1,25 @@
 import asyncio
-from asyncio import StreamReader, StreamWriter
-from asyncio import Queue
+from asyncio import StreamReader, StreamWriter, Queue
+
+from src.utils.logger import Logger
 
 
-class ClientConnection:
-
+class ReadeWriterMixin:
     __slots__ = (
         "reader", "writer",
-        "reader_queue",
+        "_reader_queue",
         "_task_reader"
     )
 
-    def __init__(self, reader: StreamReader, writer: StreamWriter):
+    def __init__(
+            self,
+            reader: StreamReader,
+            writer: StreamWriter
+    ):
         self.reader = reader
         self.writer = writer
 
-        self.reader_queue = Queue()
+        self._reader_queue = Queue()
         self._task_reader = asyncio.create_task(self._reader_from_socket())
 
     @property
@@ -32,22 +36,22 @@ class ClientConnection:
     @property
     def new_data(self) -> bool:
         """
-        Check data in reader_queue
+        Check data in _reader_queue
         If exist new data -> return True
         :return: bool (flag new data)
         """
-        if self.reader_queue.empty():
+        if self._reader_queue.empty():
             return False
         return True
 
     def execute_data(self) -> bytes:
         """
-        Execute data from reader_queue, until he will br empty
+        Execute data from _reader_queue, until he will br empty
         :return: bytes (data from socket)
         """
         data_return = list()
-        while not self.reader_queue.empty():
-            data_return.append(self.reader_queue.get_nowait())
+        while not self._reader_queue.empty():
+            data_return.append(self._reader_queue.get_nowait())
         return b''.join(data_return)
 
     def get_socket(self):
@@ -68,7 +72,7 @@ class ClientConnection:
             if not data:
                 return True
 
-            await self.reader_queue.put(data)
+            await self._reader_queue.put(data)
 
     async def close_connection(self):
         """
@@ -77,12 +81,11 @@ class ClientConnection:
         """
         self.writer.close()
         try:
-            await asyncio.wait_for(
-                self.writer.wait_closed(),
-                15
-            )
-        except TimeoutError:
+            await self.writer.wait_closed()
             self._task_reader.cancel()
+        except ConnectionResetError as e:
+            _exception = self._task_reader.exception()
+            Logger().trace(f"Exception {e} \r\n Task exception {_exception}")
 
     async def send_to_unit(self, data: bytes):
         """

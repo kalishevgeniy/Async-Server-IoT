@@ -7,13 +7,10 @@ from src.status import StatusAuth, StatusException, StatusParsing
 class ProtocolInterface(object, metaclass=ABCMeta):
 
     __slots__ = (
-        'PORT',
         '_START_BIT_PACKET', '_END_BIT_PACKET',
         '_START_BIT_LOGIN', '_END_BIT_LOGIN',
         '_LEN_LOGIN_PACKET'
     )
-
-    PORT: int
 
     _START_BIT_PACKET: Optional[bytes]
     _END_BIT_PACKET: Optional[bytes]
@@ -56,7 +53,7 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: dict
+            metadata: dict
     ) -> bytes:
         """
         :param status:
@@ -92,11 +89,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            meta: dict
+            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param metadata:
         :return:
         """
 
@@ -116,11 +113,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_exception(
             self,
             status: StatusException,
-            meta: dict
+            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param metadata:
         :return:
         """
 
@@ -161,13 +158,6 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     @property
     @abstractmethod
     def end_bit_packet(self) -> Optional[bytes]:
-        """
-        :return:
-        """
-
-    @property
-    @abstractmethod
-    def port(self) -> int:
         """
         :return:
         """

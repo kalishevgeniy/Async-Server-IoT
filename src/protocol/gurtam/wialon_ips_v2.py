@@ -50,11 +50,7 @@ class WialonIPSv2(AbstractProtocol):
     def answer_login_packet(self, status: StatusAuth, meta: dict) -> bytes:
         return b'#AL#1\r\n'
 
-    def answer_failed_login_packet(
-            self,
-            status: StatusAuth,
-            meta: dict
-    ) -> Optional[bytes]:
+    def answer_failed_login_packet(self, status: StatusAuth, metadata: dict) -> Optional[bytes]:
         if status.error or status.authorization or status.crc:
             return b'#AL#0\r\n'
         elif status.password:

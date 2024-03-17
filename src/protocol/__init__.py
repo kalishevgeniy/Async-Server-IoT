@@ -4,7 +4,8 @@ from .teltonika.teltonika import Teltonika
 
 __all__ = [
     'protocols',
-    'WialonIPSv2', 'Teltonika'
+    'WialonIPSv2',
+    'Teltonika'
 ]
 
 

@@ -23,7 +23,10 @@ class BufferMixin:
     def is_empty(self) -> bool:
         return not self._message
 
-    def clear_buffer(self, len_to_clear: int = None):
+    def clear_buffer(
+            self,
+            len_to_clear: int = None
+    ):
         """
         Make cleaning of data buffer
         :param len_to_clear: int
@@ -109,6 +112,9 @@ class BufferMixin:
     def get_full_data_packet(self) -> Optional[bytes]:
         start_bp = self._handler.start_bit_packet
         end_bp = self._handler.end_bit_packet
+
+        if not self._message:
+            return None
 
         if start_bp and end_bp:
             start = self._message.find(start_bp)

@@ -4,29 +4,35 @@ from .buffer import BufferMixin
 from src.protocol.abstract import AbstractProtocol
 from src.status.abstract import Status
 from src.status.auth import StatusAuth
-from src.status.except_status import StatusException, exception_unit_wrapper
+from src.status.exception import exception_unit_wrapper
 from src.status.parsing import StatusParsing
-from src.auth.authorization import Auth
+from ..auth.authorization import AbstractAuthorization
 from ..utils.logger import Logger
 
 
-class UnitCommunication(BufferMixin):
+class Unit(BufferMixin):
 
-    __slots__ = '_handler', '_auth', '_meta'
+    __slots__ = '_handler', '_auth', '_meta', 'imei', 'is_authorized'
 
-    def __init__(self, protocol_handler, *args, **kwargs):
+    def __init__(
+            self,
+            protocol_handler,
+            authorization: Optional[AbstractAuthorization],
+            *args,
+            **kwargs
+    ):
         super().__init__(protocol_handler, *args, **kwargs)
-        self._handler: AbstractProtocol = protocol_handler
 
-        self._auth = Auth()
+        self._handler: AbstractProtocol = protocol_handler
+        self._auth = authorization
+
+        self.imei = None
+        self.is_authorized = False
+
         self._meta: dict = dict()
 
-    @property
-    def imei(self):
-        return self._auth.imei
-
     def get_packet(self) -> bytes:
-        if self._auth.is_authorized:
+        if self.is_authorized:
             return self.get_full_data_packet()
         else:
             return self.get_full_data_login_packet()
@@ -40,42 +46,19 @@ class UnitCommunication(BufferMixin):
         :param packet: bytes
         :return: tuple[Status, Optional[list[dict]]
         """
-        if self._auth.is_authorized:
+        if self.is_authorized:
             return self._analyze_data_packet(packet)
         else:
             return self._analyze_login_packet(packet)
-
-    def create_answer_failed(
-            self,
-            status: Status
-    ) -> Optional[bytes]:
-        """
-        Entry point for making failed answer
-        By the status make choice for method failed answer
-        :param status: Status (Base class of all type of status)
-        :return: Optional[bytes]
-        """
-        if isinstance(status, StatusAuth):
-            return self._handler.answer_failed_login_packet(status, self._meta)
-        elif isinstance(status, StatusParsing):
-            return self._handler.answer_failed_data_packet(status, self._meta)
-        elif isinstance(status, StatusException):
-            return self._handler.answer_exception(status, self._meta)
-        else:
-            raise Exception("Unknown type status")
 
     def create_answer(
             self,
             status: Status
     ) -> Optional[bytes]:
-        if isinstance(status, StatusParsing):
-            return self._handler.answer_packet(status, self._meta)
-        elif isinstance(status, StatusAuth):
-            return self._handler.answer_login_packet(status, self._meta)
-        elif isinstance(status, StatusException):
-            return self._handler.answer_exception(status, self._meta)
-        else:
-            raise Exception("Unknown type answer")
+        return status.make_answer(
+            metadata=self._meta,
+            handler=self._handler
+        )
 
     @exception_unit_wrapper
     def _analyze_login_packet(
@@ -95,11 +78,22 @@ class UnitCommunication(BufferMixin):
         self._meta = self._handler.parsing_login_packet(login_packet)
 
         imei = self._handler.get_imei(self._meta)
-        status.authorization = self._auth.authorized_in_system(imei)
+
+        if self._auth:
+            status.authorization = self._auth.authorized_in_system(imei)
+            self.is_authorized = status.authorization
+        else:
+            status.authorization = True
+            self.is_authorized = True
+
         Logger().trace(f"Unit: {imei} Auth status {status.authorization}")
 
         password = self._handler.get_password(self._meta)
-        status.password = self._auth.check_password(imei, password)
+
+        if self._auth:
+            status.password = self._auth.check_password(imei, password)
+        else:
+            status.password = True
 
         return status, None
 

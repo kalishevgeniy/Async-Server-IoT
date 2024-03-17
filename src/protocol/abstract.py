@@ -6,8 +6,6 @@ from .interface import ProtocolInterface
 
 class AbstractProtocol(ProtocolInterface):
 
-    PORT: int = None
-
     _START_BIT_PACKET: Optional[bytes] = None
     _END_BIT_PACKET: Optional[bytes] = None
 
@@ -24,21 +22,21 @@ class AbstractProtocol(ProtocolInterface):
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            meta: dict
+            metadata: dict
     ) -> Optional[bytes]:
         return None
 
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            meta: dict
+            metadata: dict
     ) -> Optional[bytes]:
         return None
 
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: dict
+            metadata: dict
     ) -> bytes:
         raise NotImplementedError
 
@@ -59,7 +57,7 @@ class AbstractProtocol(ProtocolInterface):
     def answer_exception(
             self,
             status: StatusException,
-            meta: dict
+            metadata: dict
     ) -> Optional[bytes]:
         return None
 
@@ -88,12 +86,6 @@ class AbstractProtocol(ProtocolInterface):
     @property
     def end_bit_packet(self) -> Optional[bytes]:
         return self._END_BIT_PACKET
-
-    @property
-    def port(self) -> int:
-        if self.PORT is None:
-            raise NotImplementedError
-        return self.PORT
 
     @property
     def start_bit_login(self) -> Optional[bytes]:

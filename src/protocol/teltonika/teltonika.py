@@ -52,11 +52,7 @@ class Teltonika(AbstractProtocol):
     ) -> bytes:
         return b'\x01'
 
-    def answer_failed_login_packet(
-            self,
-            status: StatusAuth,
-            meta: dict
-    ) -> Optional[bytes]:
+    def answer_failed_login_packet(self, status: StatusAuth, metadata: dict) -> Optional[bytes]:
         return b'\x00'
 
     def check_crc_data(self, data_packet: bytes) -> bool:
@@ -91,17 +87,7 @@ class Teltonika(AbstractProtocol):
 
     @staticmethod
     def _get_len_packets(bytes_data: bytes) -> int:
-        return struct.unpack('B', bytes_data[0])[0]
-
-    @staticmethod
-    def batched(iterable, n):
-        """Batch data into lists of length n. The last batch may be shorter."""
-        # batched('ABCDEFG', 3) --> ABC DEF G
-        if n < 1:
-            raise ValueError('n must be >= 1')
-        it = iter(iterable)
-        while batch := list(islice(it, n)):
-            yield batch
+        return struct.unpack('B', bytes_data[0:1])[0]
 
     @staticmethod
     def _get_name_value(

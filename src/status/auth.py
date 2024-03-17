@@ -1,11 +1,12 @@
 from typing import Optional
 
 from .abstract import Status
+from ..protocol.abstract import AbstractProtocol
 
 
 class StatusAuth(Status):
 
-    __slots__ = "crc", "authorization", "password", "errror"
+    __slots__ = "crc", "authorization", "password", "error"
 
     def __init__(self):
         self.crc: Optional[bool] = None
@@ -18,3 +19,19 @@ class StatusAuth(Status):
         return all(
             (self.crc, self.authorization, self.password, not self.error)
         )
+
+    def make_answer(
+            self,
+            metadata: dict,
+            handler: AbstractProtocol
+    ) -> bytes:
+        if self.correct:
+            return handler.answer_login_packet(
+                status=self,
+                metadata=metadata
+            )
+        else:
+            return handler.answer_failed_login_packet(
+                status=self,
+                metadata=metadata
+            )
