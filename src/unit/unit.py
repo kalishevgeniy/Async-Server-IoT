@@ -1,19 +1,23 @@
 from typing import Optional
 
-from .buffer import BufferMixin
+from .buffer import Buffer
 from src.protocol.abstract import AbstractProtocol
 from src.status.abstract import Status
 from src.status.auth import StatusAuth
 from src.status.exception import exception_unit_wrapper
 from src.status.parsing import StatusParsing
-from ..auth.authorization import AbstractAuthorization
+from ..auth.abstract import AbstractAuthorization
 
 import logging
 
+from ..utils.message import Message
 
-class Unit(BufferMixin):
 
-    __slots__ = '_handler', '_auth', '_meta', 'imei', 'is_authorized'
+class Unit:
+
+    __slots__ = (
+        '_handler', '_auth', '_meta', 'imei', 'is_authorized', '_buffer'
+    )
 
     def __init__(
             self,
@@ -22,7 +26,7 @@ class Unit(BufferMixin):
             *args,
             **kwargs
     ):
-        super().__init__(protocol, *args, **kwargs)
+        self._buffer = Buffer(handler=protocol, *args, **kwargs)
 
         self._handler: AbstractProtocol = protocol
         self._auth = authorization
@@ -34,14 +38,14 @@ class Unit(BufferMixin):
 
     def get_packet(self) -> bytes:
         if self.is_authorized:
-            return self.get_full_packet()
+            return self._buffer.get_full_packet()
         else:
-            return self.get_full_login_packet()
+            return self._buffer.get_full_login_packet()
 
     def analyze_packet(
             self,
             packet: bytes
-    ) -> tuple[Status, Optional[list[dict]]]:
+    ) -> tuple[Status, Optional[list[Message]]]:
         """
         Entry point for analyze packet
         :param packet: bytes
@@ -89,13 +93,14 @@ class Unit(BufferMixin):
             password = self._handler.get_password(self._meta)
             status.password = self._auth.check_password(
                 imei=self.imei,
-                password=password)
+                password=password
+            )
         else:
             status.authorization = True
             self.is_authorized = True
             status.password = True
 
-        logging.debug(f"Unit: {self.imei} Auth status {status.authorization}")
+        logging.debug(f"Unit: {self.imei} {status}")
 
         return status, None
 
@@ -103,7 +108,7 @@ class Unit(BufferMixin):
     def _analyze_data_packet(
             self,
             data_packet: bytes
-    ) -> tuple[StatusParsing, Optional[list[dict]]]:
+    ) -> tuple[StatusParsing, list[Message]]:
         """
         Analyze data packet
         Packet parsed by protocol_handler
@@ -120,3 +125,6 @@ class Unit(BufferMixin):
         )
 
         return status, packets
+
+    def update_buffer(self, bytes_: bytes):
+        self._buffer.update_buffer(bytes_)

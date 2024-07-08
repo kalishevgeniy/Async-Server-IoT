@@ -4,7 +4,7 @@ from asyncio import StreamReader, StreamWriter, Queue
 import logging
 
 
-class ReadeWriterMixin:
+class ReadeWriter:
     __slots__ = (
         "reader", "writer",
         "_reader_queue",

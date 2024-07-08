@@ -26,8 +26,8 @@ if __name__ == '__main__':
     config = ServerConfig(
         host='0.0.0.0',
         port=2424,
-        awdadw=12,
-        dad=4124,
+        setting1=12,
+        setting2=4124,
     )
 
     config2 = ServerConfig(

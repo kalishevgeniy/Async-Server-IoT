@@ -1,8 +1,11 @@
-from typing import Type, Optional, AsyncGenerator
+import logging
+from typing import Optional
 
-from src.auth.authorization import AbstractAuthorization
+from src.auth.abstract import AbstractAuthorization
 from src.protocol.abstract import AbstractProtocol
-from src.server.factory import ServerFactory
+
+from src.server.intraface import ServerInterface
+from src.server.tcp import TCPServer
 from src.utils.config import ServerConfig
 
 
@@ -11,25 +14,26 @@ class IoTServer:
             self,
             host: str,
             port: int,
-            protocol: Type[AbstractProtocol],
+            protocol: AbstractProtocol,
+            server: Optional[ServerInterface] = None,
             authorization: Optional[AbstractAuthorization] = None,
             *args,
             **kwargs
     ):
-        self.config = self._init_server_config(
+        # init config for server runner
+        self.config: ServerConfig = self._init_server_config(
             port=port,
             host=host,
             **kwargs
         )
 
+        # init server
         self._server = self._init_server_factory(
             config=self.config,
+            server=server,
             protocol=protocol,
             authorization=authorization,
         )
-
-        self._iterator: Optional[AsyncGenerator] = None
-        self._client_connections = set()
 
     async def __aenter__(self):
         await self._server.run()
@@ -38,28 +42,21 @@ class IoTServer:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.stop()
 
-    def __aiter__(self):
-        self._iterator = self._server.msgs_iterator()
-        return self._iterator
-
     async def run(self):
         await self._server.run()
 
     async def stop(self):
-        if self._iterator:
-            await self._iterator.aclose()
-
         await self._server.stop()
 
-    def exec_msgs(self):
-        return self._server.exec_msgs()
+    def exec_msgs(self, count=-1):
+        return self._server.exec_msgs(count)
 
     @staticmethod
     def _init_server_config(
             host: str,
             port: int,
             **kwargs
-    ):
+    ) -> ServerConfig:
         return ServerConfig(
             host=host,
             port=port,
@@ -69,10 +66,15 @@ class IoTServer:
     @staticmethod
     def _init_server_factory(
             config: ServerConfig,
-            protocol: Type[AbstractProtocol],
+            server: Optional[ServerInterface],
+            protocol: AbstractProtocol,
             authorization: Optional[AbstractAuthorization] = None,
-    ):
-        return ServerFactory(
+    ) -> ServerInterface:
+        if not server:
+            logging.info('Warning! Start default TCP server')
+            server = TCPServer
+
+        return server(
             config=config,
             protocol=protocol,
             authorization=authorization,

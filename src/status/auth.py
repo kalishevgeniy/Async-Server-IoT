@@ -17,6 +17,9 @@ class StatusAuth(Status):
         self.password: Optional[bool] = None
         self.error = None
 
+    def __repr__(self):
+        return f"Status authorization: {self.correct}"
+
     @property
     def correct(self) -> bool:
         return all(

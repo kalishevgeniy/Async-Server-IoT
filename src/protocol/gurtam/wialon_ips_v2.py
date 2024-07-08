@@ -8,6 +8,7 @@ from fastcrc import crc16
 from src.protocol.abstract import AbstractProtocol
 from src.status.auth import StatusAuth
 from src.status.parsing import StatusParsing
+from src.utils.message import Message
 
 
 class WialonIPSv2(AbstractProtocol):
@@ -87,7 +88,7 @@ class WialonIPSv2(AbstractProtocol):
             self,
             bytes_data: bytes,
             metadata: dict
-    ) -> tuple[Optional[list[dict]], dict]:
+    ) -> tuple[Optional[list[Message]], dict]:
         _, packet_type, data = bytes_data.split(b'#')
 
         match packet_type:

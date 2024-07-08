@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 
 
-class TimeP(BaseModel):
+class Time(BaseModel):
     receive: datetime = datetime.now(tz=timezone.utc)
     in_packet: datetime
 
@@ -27,8 +27,8 @@ class LBS(BaseModel):
 
 class Message(BaseModel):
     imei: str
-    time_object: TimeP
+    time_: Time
     navigation: Navigation
-    speed: int
+    speed: Optional[int]
     lbs: Optional[LBS]
-    parameters: dict[str, Any]
+    parameters: Optional[dict[Any, Any]]

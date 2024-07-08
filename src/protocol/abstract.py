@@ -2,6 +2,7 @@ from typing import Optional
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface
+from ..utils.message import Message
 
 
 class AbstractProtocol(ProtocolInterface):
@@ -44,7 +45,7 @@ class AbstractProtocol(ProtocolInterface):
             self,
             bytes_data: bytes,
             metadata: dict
-    ) -> tuple[list[dict], dict]:
+    ) -> tuple[list[Message], dict]:
         raise NotImplementedError
 
     def answer_packet(

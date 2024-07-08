@@ -1,13 +1,14 @@
 import asyncio
 from typing import Optional
 
-from src.auth.authorization import AbstractAuthorization
-from src.client.mixin import ReadeWriterMixin
+from src.auth.abstract import AbstractAuthorization
+from src.client.reader_writer import ReadeWriter
 from src.protocol.abstract import AbstractProtocol
 from src.unit.unit import Unit
+from src.utils.message import Message
 
 
-class ClientConnection(ReadeWriterMixin):
+class ClientConnection:
 
     def __init__(
             self,
@@ -18,15 +19,15 @@ class ClientConnection(ReadeWriterMixin):
             *args,
             **kwargs
     ):
-        self.msgs_queue: asyncio.Queue = msgs_queue
+        self.msgs_queue: asyncio.Queue[Message] = msgs_queue
         self.protocol: AbstractProtocol = protocol
         self.server_status: asyncio.Event = server_status
         self.authorization: AbstractAuthorization = authorization
 
-        super().__init__(*args, **kwargs)
-
-    def __hash__(self):
-        return asyncio.current_task().__hash__()
+        self._connector = ReadeWriter(
+            *args,
+            **kwargs
+        )
 
     async def run_client_loop(self):
         """
@@ -49,9 +50,9 @@ class ClientConnection(ReadeWriterMixin):
         await asyncio.sleep(0)
         while self.server_status.is_set():
 
-            if self.new_data:
+            if self._connector.new_data:
 
-                bytes_data = self.execute_data()
+                bytes_data = self._connector.execute_data()
                 unit.update_buffer(bytes_data)
 
                 packet = unit.get_packet()
@@ -59,19 +60,26 @@ class ClientConnection(ReadeWriterMixin):
                 if not packet:
                     continue
 
-                status, data = unit.analyze_packet(packet)
+                status, messages = unit.analyze_packet(packet)
 
                 if not status.correct:
                     answer_fail = unit.create_answer(status)
-                    await self.send_to_unit(answer_fail)
+                    await self._connector.send_to_unit(answer_fail)
                     break
 
                 answer = unit.create_answer(status)
-                await self.msgs_queue.put(data)
-                await self.send_to_unit(answer)
+
+                if messages:
+                    for message in messages:
+                        await self.msgs_queue.put(message)
+
+                await self._connector.send_to_unit(answer)
 
             else:
-                await asyncio.sleep(0.005)
+                await asyncio.sleep(0.01)
 
-            if self.is_not_alive:
+            if self._connector.is_not_alive:
                 break
+
+    async def close_connection(self):
+        await self._connector.close_connection()

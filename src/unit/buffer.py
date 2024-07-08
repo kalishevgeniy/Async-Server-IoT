@@ -2,7 +2,7 @@ from typing import Optional
 from src.protocol.abstract import AbstractProtocol
 
 
-class BufferMixin:
+class Buffer:
 
     __slots__ = '_message', '_handler', '_max_buffer_size'
 
@@ -11,11 +11,11 @@ class BufferMixin:
         self._message: bytes = bytes()
         self._handler: AbstractProtocol = handler
 
-    def update_buffer(self, _bytes: bytes):
+    def update_buffer(self, bytes_: bytes):
         if len(self._message) > self._max_buffer_size:
             raise Exception  # todo add custom exception
 
-        self._message += _bytes
+        self._message += bytes_
 
     @property
     def is_empty(self) -> bool:

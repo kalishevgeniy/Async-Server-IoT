@@ -1,24 +1,27 @@
 import asyncio
 from asyncio import Server
-from typing import Type, Optional
+from typing import Optional
 
-from src.auth.authorization import AbstractAuthorization
+from src.auth.abstract import AbstractAuthorization
 from src.client.connection import ClientConnection
 from src.protocol.abstract import AbstractProtocol
+from src.server.intraface import ServerInterface
 from src.utils.config import ServerConfig
 
 import logging
 
+from src.utils.message import Message
 
-class ServerFactory:
+
+class TCPServer(ServerInterface):
     def __init__(
             self,
             config: ServerConfig,
-            protocol: Type[AbstractProtocol],
+            protocol: AbstractProtocol,
             authorization: Optional[AbstractAuthorization] = None,
     ):
         self.config = config
-        self.protocol = protocol()
+        self.protocol = protocol
         self.authorization = authorization
 
         self._task_server: Optional[Server] = None
@@ -27,17 +30,17 @@ class ServerFactory:
         self._client_connections: set[ClientConnection] = set()
         self._msgs_queue = asyncio.Queue(config.queue_size)
 
-    async def msgs_iterator(self):
-        while True:
-            yield await self._msgs_queue.get()
+    def __aiter__(self):
+        return self
 
-    def exec_msgs(self):
+    async def __anext__(self):
+        message = await self._msgs_queue.get()
+        return message
+
+    def exec_msgs(self, count: int = -1) -> list[Message]:
         msgs = list()
         while not self._msgs_queue.empty():
-            msgs.append(
-                self._msgs_queue.get_nowait()
-            )
-
+            msgs.append(self._msgs_queue.get_nowait())
         return msgs
 
     async def run(self):
