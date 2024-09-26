@@ -2,6 +2,7 @@ from abc import abstractmethod, ABCMeta
 from typing import Optional
 
 from src.status import StatusAuth, StatusException, StatusParsing
+from src.utils.message import PreMessage
 
 
 class ProtocolInterface(object, metaclass=ABCMeta):
@@ -21,21 +22,17 @@ class ProtocolInterface(object, metaclass=ABCMeta):
 
     @abstractmethod
     def get_imei(
-            self,
-            metadata: dict
+            self
     ) -> Optional[str]:
         """
-        :param metadata:
         :return:
         """
 
     @abstractmethod
     def get_password(
-            self,
-            metadata: dict
+            self
     ) -> Optional[str]:
         """
-        :param metadata:
         :return:
         """
 
@@ -43,7 +40,7 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def parsing_login_packet(
             self,
             bytes_data: bytes
-    ) -> dict:
+    ) -> Optional[list[PreMessage]]:
         """
         :param bytes_data:
         :return:
@@ -53,11 +50,9 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
-    ) -> bytes:
+    ) -> Optional[bytes]:
         """
         :param status:
-        :param metadata:
         :return:
         """
 
@@ -65,11 +60,9 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def parsing_packet(
             self,
             bytes_data: bytes,
-            metadata: dict
-    ) -> list[dict]:
+    ) -> Optional[list[PreMessage]]:
         """
         :param bytes_data:
-        :param metadata:
         :return:
         """
 
@@ -77,11 +70,9 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param metadata:
         :return:
         """
 
@@ -89,11 +80,9 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param metadata:
         :return:
         """
 
@@ -101,11 +90,9 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param metadata:
         :return:
         """
 
@@ -113,16 +100,17 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_exception(
             self,
             status: StatusException,
-            metadata: dict
     ) -> Optional[bytes]:
         """
         :param status:
-        :param metadata:
         :return:
         """
 
     @abstractmethod
-    def check_crc_login(self, login_packet: bytes) -> bool:
+    def check_crc_login(
+            self,
+            login_packet: bytes
+    ) -> bool:
         """
         :param login_packet:
         :return:

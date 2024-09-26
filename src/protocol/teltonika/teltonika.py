@@ -10,6 +10,8 @@ from itertools import islice
 
 import logging
 
+from ...utils.message import PreMessage
+
 
 def batched(iterable, n):
     """Batch data into lists of length n. The last batch may be shorter."""
@@ -37,20 +39,23 @@ class Teltonika(AbstractProtocol):
     def parsing_login_packet(
             self,
             bytes_data: bytes
-    ) -> dict:
-        return {'imei': bytes_data.decode()}
+    ) -> Optional[list[PreMessage]]:
+        self.metadata.imei = bytes_data.decode()
+        return None
 
-    def get_imei(self, metadata: dict) -> Optional[str]:
-        return metadata['imei']
+    def get_imei(self) -> Optional[str]:
+        return self.metadata.imei
 
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: dict
     ) -> bytes:
         return b'\x01'
 
-    def answer_failed_login_packet(self, status: StatusAuth, metadata: dict) -> Optional[bytes]:
+    def answer_failed_login_packet(
+            self,
+            status: StatusAuth,
+    ) -> Optional[bytes]:
         return b'\x00'
 
     def check_crc_data(self, data_packet: bytes) -> bool:
@@ -63,14 +68,13 @@ class Teltonika(AbstractProtocol):
     def parsing_packet(
             self,
             bytes_data: bytes,
-            metadata: dict
-    ) -> tuple[list[dict], dict]:
+    ) -> Optional[list[PreMessage]]:
 
         len_packet = len(bytes_data) - 11
         codec_id, number_data_1, number_data_2 = struct.unpack(
             f'>4x2B{len_packet}x1s4x', bytes_data
         )
-        metadata['all_count_packet'] = number_data_2
+        self.metadata.all_count_packet = number_data_2
 
         match codec_id:
             case 0x08:
@@ -81,7 +85,7 @@ class Teltonika(AbstractProtocol):
                 logging.debug("Warning, unknown codec_id!")
                 packets = list()
 
-        return packets, metadata
+        return packets
 
     @staticmethod
     def _get_len_packets(bytes_data: bytes) -> int:
@@ -150,7 +154,10 @@ class Teltonika(AbstractProtocol):
     def _gps_data(
             bytes_data: bytes
     ) -> tuple[float, float, int, int, int, int]:
-        lon, lat, alt, angle, sats, speed = struct.unpack('>2I2H1B1H', bytes_data)
+        lon, lat, alt, angle, sats, speed = struct.unpack(
+            '>2I2H1B1H',
+            bytes_data
+        )
         direction = -1 if lat >> 31 else 1
         lat = (lat & 0x7F_FF_FF_FF * direction) / 10_000_000
         lon = (lon & 0x7F_FF_FF_FF * direction) / 10_000_000
@@ -219,9 +226,8 @@ class Teltonika(AbstractProtocol):
     def answer_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
         return b''.join(
-            (b'\x00\x00\x00', metadata['all_count_packet'])
+            (b'\x00\x00\x00', self.metadata.all_count_packet)
         )
 

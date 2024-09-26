@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Type
 
 from src.auth.abstract import AbstractAuthorization
 from src.protocol.abstract import AbstractProtocol
@@ -8,74 +8,45 @@ from src.server.intraface import ServerInterface
 from src.server.tcp import TCPServer
 from src.utils.config import ServerConfig
 
+from contextlib import asynccontextmanager
 
-class IoTServer:
-    def __init__(
-            self,
-            host: str,
-            port: int,
-            protocol: AbstractProtocol,
-            server: Optional[ServerInterface] = None,
-            authorization: Optional[AbstractAuthorization] = None,
-            *args,
-            **kwargs
-    ):
-        # init config for server runner
-        self.config: ServerConfig = self._init_server_config(
-            port=port,
-            host=host,
-            **kwargs
-        )
 
-        # init server
-        self._server = self._init_server_factory(
-            config=self.config,
-            server=server,
-            protocol=protocol,
-            authorization=authorization,
-        )
+def _init_server_config(
+        host: str,
+        port: int,
+        **kwargs
+) -> ServerConfig:
+    return ServerConfig(
+        host=host,
+        port=port,
+        **kwargs
+    )
 
-    async def __aenter__(self):
-        await self._server.run()
-        return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.stop()
+@asynccontextmanager
+async def run_server(
+        host: str,
+        port: int,
+        protocol: Type[AbstractProtocol],
+        server: Optional[ServerInterface] = None,
+        authorization: Optional[AbstractAuthorization] = None,
+):
+    config: ServerConfig = _init_server_config(
+        port=port,
+        host=host,
+    )
 
-    async def run(self):
-        await self._server.run()
+    if not server:
+        logging.info('Warning! Start default TCP server')
+        server = TCPServer
 
-    async def stop(self):
-        await self._server.stop()
-
-    def exec_msgs(self, count=-1):
-        return self._server.exec_msgs(count)
-
-    @staticmethod
-    def _init_server_config(
-            host: str,
-            port: int,
-            **kwargs
-    ) -> ServerConfig:
-        return ServerConfig(
-            host=host,
-            port=port,
-            **kwargs
-        )
-
-    @staticmethod
-    def _init_server_factory(
-            config: ServerConfig,
-            server: Optional[ServerInterface],
-            protocol: AbstractProtocol,
-            authorization: Optional[AbstractAuthorization] = None,
-    ) -> ServerInterface:
-        if not server:
-            logging.info('Warning! Start default TCP server')
-            server = TCPServer
-
-        return server(
-            config=config,
-            protocol=protocol,
-            authorization=authorization,
-        )
+    _server = server(
+        config=config,
+        protocol=protocol(),
+        authorization=authorization,
+    )
+    await _server.run()
+    try:
+        yield _server
+    finally:
+        await _server.stop()

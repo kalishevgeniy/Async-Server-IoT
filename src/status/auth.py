@@ -22,22 +22,15 @@ class StatusAuth(Status):
 
     @property
     def correct(self) -> bool:
-        return all(
-            (self.crc, self.authorization, self.password, not self.error)
-        )
+        return all((
+            self.crc, self.authorization, self.password, not self.error
+        ))
 
     def make_answer(
             self,
-            metadata: dict,
             handler: AbstractProtocol
     ) -> bytes:
         if self.correct:
-            return handler.answer_login_packet(
-                status=self,
-                metadata=metadata
-            )
+            return handler.answer_login_packet(status=self)
         else:
-            return handler.answer_failed_login_packet(
-                status=self,
-                metadata=metadata
-            )
+            return handler.answer_failed_login_packet(status=self)

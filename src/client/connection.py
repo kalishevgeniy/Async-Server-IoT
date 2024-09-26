@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 
 from src.auth.abstract import AbstractAuthorization
-from src.client.reader_writer import ReadeWriter
+from src.client.connector.abstract import ConnectorAbstract
 from src.protocol.abstract import AbstractProtocol
 from src.unit.unit import Unit
 from src.utils.message import Message
@@ -15,6 +15,7 @@ class ClientConnection:
             msgs_queue: asyncio.Queue,
             protocol: AbstractProtocol,
             server_status: asyncio.Event,
+            connector: ConnectorAbstract,
             authorization: Optional[AbstractAuthorization] = None,
             *args,
             **kwargs
@@ -23,10 +24,11 @@ class ClientConnection:
         self.protocol: AbstractProtocol = protocol
         self.server_status: asyncio.Event = server_status
         self.authorization: AbstractAuthorization = authorization
+        self.connector = connector
 
-        self._connector = ReadeWriter(
-            *args,
-            **kwargs
+        self.unit = Unit(
+            protocol=self.protocol,
+            authorization=self.authorization
         )
 
     async def run_client_loop(self):
@@ -42,44 +44,40 @@ class ClientConnection:
         4) if status is correct make answer for unit
         5) repeat 1) -> 2) ....
         """
-        unit = Unit(
-            protocol=self.protocol,
-            authorization=self.authorization
-        )
 
         await asyncio.sleep(0)
         while self.server_status.is_set():
 
-            if self._connector.new_data:
+            if self.connector.new_data:
 
-                bytes_data = self._connector.execute_data()
-                unit.update_buffer(bytes_data)
+                bytes_data = self.connector.execute_data()
+                self.unit.update_buffer(bytes_data)
 
-                packet = unit.get_packet()
+                packet = self.unit.get_packet()
 
                 if not packet:
                     continue
 
-                status, messages = unit.analyze_packet(packet)
+                status, messages = self.unit.analyze_packet(packet)
 
                 if not status.correct:
-                    answer_fail = unit.create_answer(status)
-                    await self._connector.send_to_unit(answer_fail)
+                    answer_fail = self.unit.create_answer(status)
+                    await self.connector.send(answer_fail)
                     break
 
-                answer = unit.create_answer(status)
+                answer = self.unit.create_answer(status)
 
                 if messages:
                     for message in messages:
                         await self.msgs_queue.put(message)
 
-                await self._connector.send_to_unit(answer)
+                await self.connector.send(answer)
 
             else:
                 await asyncio.sleep(0.01)
 
-            if self._connector.is_not_alive:
+            if self.connector.is_not_alive:
                 break
 
     async def close_connection(self):
-        await self._connector.close_connection()
+        await self.connector.close_connection()

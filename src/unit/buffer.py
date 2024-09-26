@@ -7,7 +7,7 @@ class Buffer:
     __slots__ = '_message', '_handler', '_max_buffer_size'
 
     def __init__(self, handler, *args, **kwargs):
-        self._max_buffer_size = 65536   # todo add setting
+        self._max_buffer_size = 65536 * 1000  # todo add setting
         self._message: bytes = bytes()
         self._handler: AbstractProtocol = handler
 
@@ -41,6 +41,9 @@ class Buffer:
         Clear buffer if data incorrect
         :return: Optional[bytes] (login packet)
         """
+        if not self._message:
+            return None
+
         start_bl = self._handler.start_bit_login
         end_bl = self._handler.end_bit_login
 

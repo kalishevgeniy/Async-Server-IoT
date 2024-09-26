@@ -1,6 +1,6 @@
 import asyncio
 from src.protocol import WialonIPSv2
-from src.server.server import IoTServer
+from src.server.server import run_server
 import logging
 
 logging.basicConfig(
@@ -10,10 +10,10 @@ logging.basicConfig(
 
 async def main() -> None:
 
-    async with IoTServer(
+    async with run_server(
             host="0.0.0.0",
             port=50_000,
-            protocol=WialonIPSv2()
+            protocol=WialonIPSv2
     ) as server:
         async for message in server:
             print(message)

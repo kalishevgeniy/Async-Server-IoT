@@ -28,13 +28,9 @@ class StatusException(Status):
 
     def make_answer(
             self,
-            metadata: dict,
             handler: AbstractProtocol
     ) -> bytes:
-        return handler.answer_exception(
-            status=self,
-            metadata=metadata
-        )
+        return handler.answer_exception(status=self)
 
 
 def exception_unit_wrapper(func):
@@ -45,8 +41,10 @@ def exception_unit_wrapper(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            logging.warning(
-                f"Parsing exception {e} {args} {kwargs} {func.__name__}"
+            logging.error(
+                f"Parsing exception {e} \n"
+                f"arguments {(args, kwargs)} \n"
+                f"function {func.__name__}"
             )
             status = StatusException()
             status.error = True

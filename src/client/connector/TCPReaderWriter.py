@@ -2,9 +2,12 @@ import asyncio
 from asyncio import StreamReader, StreamWriter, Queue
 
 import logging
+from socket import socket
+
+from src.client.connector.abstract import ConnectorAbstract
 
 
-class ReadeWriter:
+class TCPReaderWriter(ConnectorAbstract):
     __slots__ = (
         "reader", "writer",
         "_reader_queue",
@@ -24,48 +27,26 @@ class ReadeWriter:
 
     @property
     def is_not_alive(self) -> bool:
-        """
-        Check task socket reader
-        If task finished -> connection close -> return True
-        :return: bool
-        """
         if self._task_reader.done():
             return True
         return False
 
     @property
     def new_data(self) -> bool:
-        """
-        Check data in _reader_queue
-        If exist new data -> return True
-        :return: bool (flag new data)
-        """
         if self._reader_queue.empty():
             return False
         return True
 
     def execute_data(self) -> bytes:
-        """
-        Execute data from _reader_queue, until he will br empty
-        :return: bytes (data from socket)
-        """
         data_return = list()
         while not self._reader_queue.empty():
             data_return.append(self._reader_queue.get_nowait())
         return b''.join(data_return)
 
-    def get_socket(self):
-        """
-        Get client socket object
-        :return: socket
-        """
+    def get_socket(self) -> socket:
         return self.writer.get_extra_info('socket')
 
     async def _reader_from_socket(self):
-        """
-        Task for reading from socket
-        :return: bool
-        """
         while True:
             data = await self.reader.read(1_000)
 
@@ -74,11 +55,11 @@ class ReadeWriter:
 
             await self._reader_queue.put(data)
 
+    @property
+    def address(self) -> tuple[str, int]:
+        return self.writer.get_extra_info('peername')
+
     async def close_connection(self):
-        """
-        Make soft close client connection
-        :return: None
-        """
         self.writer.close()
 
         try:
@@ -93,7 +74,7 @@ class ReadeWriter:
             _exception = self._task_reader.exception()
             logging.debug(f"Exception {e} \r\n Task exception {_exception}")
 
-    async def send_to_unit(self, data: bytes):
+    async def send(self, data: bytes):
         """
         Send packets to writer queue
         :param data: bytes

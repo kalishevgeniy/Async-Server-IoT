@@ -1,9 +1,11 @@
 import asyncio
-from asyncio import Server
+from asyncio import Server, StreamReader, StreamWriter
 from typing import Optional
 
 from src.auth.abstract import AbstractAuthorization
 from src.client.connection import ClientConnection
+from src.client.connections import ClientConnections
+from src.client.connector.TCPReaderWriter import TCPReaderWriter
 from src.protocol.abstract import AbstractProtocol
 from src.server.intraface import ServerInterface
 from src.utils.config import ServerConfig
@@ -24,10 +26,11 @@ class TCPServer(ServerInterface):
         self.protocol = protocol
         self.authorization = authorization
 
-        self._task_server: Optional[Server] = None
-
+        self._server: Optional[Server] = None
         self._server_is_work: asyncio.Event = asyncio.Event()
-        self._client_connections: set[ClientConnection] = set()
+
+        self._client_connections: ClientConnections = ClientConnections()
+
         self._msgs_queue = asyncio.Queue(config.queue_size)
 
     def __aiter__(self):
@@ -39,37 +42,30 @@ class TCPServer(ServerInterface):
 
     def exec_msgs(self, count: int = -1) -> list[Message]:
         msgs = list()
-        while not self._msgs_queue.empty():
+        while not self._msgs_queue.empty() and len(msgs) > count:
             msgs.append(self._msgs_queue.get_nowait())
         return msgs
 
     async def run(self):
-        self._task_server = await asyncio.start_server(
+        self._server = await asyncio.start_server(
             self._init_client_connection,
             host=str(self.config.host),
             port=self.config.port,
             **self.config.model_extra,
         )
-        await self._task_server.start_serving()
+        await self._server.start_serving()
 
         self._server_is_work.set()
 
     async def _soft_stop_server(self):
-        self._task_server.close()
+        self._server.close()
         try:
             await asyncio.wait_for(
-                self._task_server.wait_closed(),
+                self._server.wait_closed(),
                 15
             )
         except asyncio.TimeoutError:
-            print('Timeout error close socket')
-
-    async def _soft_close_client_connection(self):
-        async with asyncio.TaskGroup() as tg:
-            for client in self._client_connections:
-                tg.create_task(client.close_connection())
-
-        self._client_connections = None
+            logging.warning('Timeout error close socket')
 
     async def stop(self):
         await self._soft_stop_server()
@@ -78,19 +74,18 @@ class TCPServer(ServerInterface):
         self._server_is_work.clear()
 
         # cancel current task work and close connection
-        await self._soft_close_client_connection()
+        await self._client_connections.close_all()
 
     async def _init_client_connection(
             self,
-            *args,
+            reader: StreamReader,
+            writer: StreamWriter,
             **kwargs
     ):
-        reader, writer = args
         client_conn = ClientConnection(
-            reader=reader,
-            writer=writer,
             msgs_queue=self._msgs_queue,
             protocol=self.protocol,
+            connector=TCPReaderWriter(reader=reader, writer=writer),
             server_status=self._server_is_work,
             authorization=self.authorization,
             **kwargs

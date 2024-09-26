@@ -23,16 +23,9 @@ class StatusParsing(Status):
 
     def make_answer(
             self,
-            metadata: dict,
             handler: AbstractProtocol
     ) -> bytes:
         if self.correct:
-            return handler.answer_packet(
-                status=self,
-                metadata=metadata
-            )
+            return handler.answer_packet(status=self)
         else:
-            return handler.answer_failed_data_packet(
-                status=self,
-                metadata=metadata
-            )
+            return handler.answer_failed_data_packet(status=self)

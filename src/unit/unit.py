@@ -10,13 +10,13 @@ from ..auth.abstract import AbstractAuthorization
 
 import logging
 
-from ..utils.message import Message
+from ..utils.message import PreMessage
 
 
 class Unit:
 
     __slots__ = (
-        '_handler', '_auth', '_meta', 'imei', 'is_authorized', '_buffer'
+        '_handler', '_auth', 'imei', 'is_authorized', '_buffer'
     )
 
     def __init__(
@@ -34,8 +34,6 @@ class Unit:
         self.imei = None
         self.is_authorized = False
 
-        self._meta: dict = dict()
-
     def get_packet(self) -> bytes:
         if self.is_authorized:
             return self._buffer.get_full_packet()
@@ -45,7 +43,7 @@ class Unit:
     def analyze_packet(
             self,
             packet: bytes
-    ) -> tuple[Status, Optional[list[Message]]]:
+    ) -> tuple[Status, Optional[list[PreMessage]]]:
         """
         Entry point for analyze packet
         :param packet: bytes
@@ -61,7 +59,6 @@ class Unit:
             status: Status
     ) -> Optional[bytes]:
         return status.make_answer(
-            metadata=self._meta,
             handler=self._handler
         )
 
@@ -80,9 +77,9 @@ class Unit:
         status = StatusAuth()
 
         status.crc = self._handler.check_crc_login(login_packet)
-        self._meta = self._handler.parsing_login_packet(login_packet)
+        packets = self._handler.parsing_login_packet(login_packet)
 
-        self.imei = self._handler.get_imei(self._meta)
+        self.imei = self._handler.get_imei()
 
         if self._auth:
             status.authorization = self._auth.authorized_in_system(
@@ -90,7 +87,7 @@ class Unit:
             )
             self.is_authorized = status.authorization
 
-            password = self._handler.get_password(self._meta)
+            password = self._handler.get_password()
             status.password = self._auth.check_password(
                 imei=self.imei,
                 password=password
@@ -102,27 +99,24 @@ class Unit:
 
         logging.debug(f"Unit: {self.imei} {status}")
 
-        return status, None
+        return status, packets
 
     @exception_unit_wrapper
     def _analyze_data_packet(
             self,
             data_packet: bytes
-    ) -> tuple[StatusParsing, list[Message]]:
+    ) -> tuple[StatusParsing, list[PreMessage]]:
         """
         Analyze data packet
         Packet parsed by protocol_handler
         :param data_packet:  bytes
-        :return:  tuple[StatusParsing, Optional[list[dict]]]
+        :return:  tuple[StatusParsing, Optional[list[PreMessage]]]
         """
 
         status = StatusParsing()
         status.crc = self._handler.check_crc_data(data_packet)
 
-        packets, self._meta = self._handler.parsing_packet(
-            data_packet,
-            self._meta
-        )
+        packets = self._handler.parsing_packet(data_packet)
 
         return status, packets
 

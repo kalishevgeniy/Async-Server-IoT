@@ -8,7 +8,7 @@ from fastcrc import crc16
 from src.protocol.abstract import AbstractProtocol
 from src.status.auth import StatusAuth
 from src.status.parsing import StatusParsing
-from src.utils.message import Message
+from src.utils.message import PreMessage
 
 
 class WialonIPSv2(AbstractProtocol):
@@ -23,20 +23,22 @@ class WialonIPSv2(AbstractProtocol):
     def __str__(self):
         return 'WialonIPSv2'
 
-    def parsing_login_packet(self, bytes_data: bytes) -> dict:
+    def parsing_login_packet(self, bytes_data: bytes) -> list[PreMessage]:
         _, _, data = bytes_data.split(b'#')
         protocol_version, imei, password, _ = data.split(b';')
-        return {
+        self.metadata.imei = imei.decode()
+
+        return [PreMessage(**{'parameters': {
             'imei': imei,
             'protocol_version': protocol_version,
             'password': password
-        }
+        }})]
 
-    def get_imei(self, metadata: dict) -> Optional[str]:
-        return metadata.get('imei', b'').decode()
+    def get_imei(self) -> Optional[str]:
+        return self.metadata.imei
 
-    def get_password(self, metadata: dict) -> Optional[str]:
-        return metadata.get('password', b'').decode()
+    def get_password(self) -> Optional[str]:
+        return self.metadata.password
 
     def check_crc_login(self, login_packet: bytes) -> bool:
         body = login_packet[3:-6]
@@ -52,14 +54,12 @@ class WialonIPSv2(AbstractProtocol):
     def answer_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
     ) -> bytes:
         return b'#AL#1\r\n'
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
     ) -> Optional[bytes]:
         if status.error or status.authorization or status.crc:
             return b'#AL#0\r\n'
@@ -78,17 +78,13 @@ class WialonIPSv2(AbstractProtocol):
     def answer_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
-        return b"".join(
-            (b"#A", metadata['last_type_packet'], b"#1\r\n")
-        )
+        return b"#A%b#1\r\n" % self.metadata.last_type_packet
 
     def parsing_packet(
             self,
             bytes_data: bytes,
-            metadata: dict
-    ) -> tuple[Optional[list[Message]], dict]:
+    ) -> Optional[list[PreMessage]]:
         _, packet_type, data = bytes_data.split(b'#')
 
         match packet_type:
@@ -101,23 +97,22 @@ class WialonIPSv2(AbstractProtocol):
             case _:
                 packets = None
 
-        metadata['last_type_packet'] = packet_type
-        return packets, metadata
+        self.metadata.last_type_packet = packet_type
+        return packets
 
-    def _parse_packet_sd(self, data: bytes) -> dict:
+    def _parse_packet_sd(self, data: bytes) -> PreMessage:
         (date, _time,
          lat, lat_dir, lon, lon_dir,
          speed, course, alt, sats) = data.split(b';', 10)
 
-        parameters = dict()
-        parameters.update(self._get_base_data((
+        message = self._get_base_data((
             date, _time,
             lat, lat_dir, lon, lon_dir,
             speed, course, alt, sats
-        )))
-        return parameters
+        ))
+        return message
 
-    def _parse_packet_d(self, data: bytes) -> dict:
+    def _parse_packet_d(self, data: bytes) -> PreMessage:
         (
             date, _time,
             lat, lat_dir, lon, lon_dir,
@@ -125,36 +120,37 @@ class WialonIPSv2(AbstractProtocol):
             inputs, outputs, adc, ibutton, params, _
         ) = data.split(b';', 17)
 
-        parameters = dict()
-        parameters.update(self._get_base_data(
+        message = self._get_base_data(
             date, _time,
             lat, lat_dir, lon, lon_dir,
             speed, course, alt, sats
-        ))
-        parameters['hdop'] = float(hdop) if hdop != self._EMPTY else None
-        parameters['ibutton'] = str(
-            ibutton) if ibutton != self._EMPTY else None
+        )
+
+        message.lbs.hdop = float(hdop) if hdop != self._EMPTY else None
+        message.parameters.update({
+            'ibutton': str(ibutton) if ibutton != self._EMPTY else None
+        })
 
         if self._EMPTY != inputs and inputs:
-            parameters['inputs'] = {
+            message.parameters.update({
                 f"in_{num}": int(val)
                 for num, val
                 in enumerate(f"{int(inputs):b}"[::-1])
-            }
+            })
 
         if self._EMPTY != outputs and outputs:
-            parameters['outputs'] = {
+            message.parameters.update({
                 f"out_{num}": int(val)
                 for num, val
                 in enumerate(f"{int(outputs):b}"[::-1])
-            }
+            })
 
         if self._EMPTY != adc and adc:
-            parameters['adc'] = {
+            message.parameters.update({
                 f"adc_{num}": float(val)
                 for num, val
                 in enumerate(adc.split(b','))
-            }
+            })
 
         if self._EMPTY != params and params:
             list_parameters = list()
@@ -168,10 +164,10 @@ class WialonIPSv2(AbstractProtocol):
                             "value": str(p_val)
                         }
                     )
-            parameters['parameters'] = list_parameters
-        return parameters
+            message.parameters.update({'parameters': list_parameters})
+        return message
 
-    def _parse_packet_b(self, data: bytes) -> list[dict]:
+    def _parse_packet_b(self, data: bytes) -> list[PreMessage]:
         ready_packets = list()
 
         packets_b = data.split(b'|')
@@ -180,20 +176,20 @@ class WialonIPSv2(AbstractProtocol):
 
         return ready_packets
 
-    def _get_base_data(self, *args) -> dict:
+    def _get_base_data(self, *args) -> PreMessage:
         (date, _time,
          lat, lat_dir, lon, lon_dir,
          speed, course, alt, sats) = args
 
-        return {
-            'time': self._get_time(date, _time),
-            'lat': self._get_lat(lat, lat_dir),
-            'lon': self._get_lon(lon, lon_dir),
+        return PreMessage(**{
+            'in_packet': self._get_time(date, _time),
+            'latitude': self._get_lat(lat, lat_dir),
+            'longitude': self._get_lon(lon, lon_dir),
             'speed': float(speed) if speed != self._EMPTY else None,
             'course': float(course) if course != self._EMPTY else None,
-            'alt': float(alt) if alt != self._EMPTY else None,
-            'sats': int(sats) if sats != self._EMPTY else None,
-        }
+            'altitude': float(alt) if alt != self._EMPTY else None,
+            'satellites': int(sats) if sats != self._EMPTY else None,
+        })
 
     def _get_time(self, date: bytes, _time: bytes) -> int:
         if self._EMPTY not in (date, _time):

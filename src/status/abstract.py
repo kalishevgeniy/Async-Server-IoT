@@ -15,7 +15,6 @@ class Status(Protocol):
 
     def make_answer(
             self,
-            metadata: dict,
             handler: AbstractProtocol
     ) -> bytes:
         """Return specific answer for handler"""

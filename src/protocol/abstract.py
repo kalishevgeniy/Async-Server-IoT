@@ -2,7 +2,8 @@ from typing import Optional
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface
-from ..utils.message import Message
+from ..utils.message import PreMessage
+from ..utils.meta import MetaData
 
 
 class AbstractProtocol(ProtocolInterface):
@@ -14,58 +15,55 @@ class AbstractProtocol(ProtocolInterface):
     _END_BIT_LOGIN: Optional[bytes] = None
     _LEN_LOGIN_PACKET: Optional[int] = None
 
+    def __init__(self):
+        self.metadata = MetaData()
+
     def parsing_login_packet(
             self,
             bytes_data: bytes
-    ) -> dict:
+    ) -> Optional[list[PreMessage]]:
         raise NotImplementedError
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
     ) -> Optional[bytes]:
         return None
 
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
         return None
 
     def answer_login_packet(
             self,
             status: StatusAuth,
-            metadata: dict
     ) -> bytes:
         raise NotImplementedError
 
     def parsing_packet(
             self,
             bytes_data: bytes,
-            metadata: dict
-    ) -> tuple[list[Message], dict]:
+    ) -> Optional[list[PreMessage]]:
         raise NotImplementedError
 
     def answer_packet(
             self,
             status: StatusParsing,
-            metadata: dict
     ) -> Optional[bytes]:
         raise NotImplementedError
 
     def answer_exception(
             self,
             status: StatusException,
-            metadata: dict
     ) -> Optional[bytes]:
         return None
 
-    def get_imei(self, metadata: dict) -> Optional[str]:
+    def get_imei(self) -> Optional[str]:
         raise NotImplementedError
 
-    def get_password(self, metadata: dict) -> Optional[str]:
+    def get_password(self) -> Optional[str]:
         return None
 
     def check_crc_login(self, login_packet: bytes) -> bool:
