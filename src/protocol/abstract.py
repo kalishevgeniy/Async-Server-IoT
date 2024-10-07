@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, Any
+from venv import logger
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface
@@ -77,6 +78,17 @@ class AbstractProtocol(ProtocolInterface):
 
     def custom_start_end_packet(self, data: bytes) -> tuple[int, int]:
         raise NotImplementedError
+
+    def create_command(
+            self,
+            imei: str,
+            command: bytes,
+            **kwargs: dict[Any, Any]
+    ) -> bytes:
+        logger.debug(
+            f'Send default command to object {imei} with command {command}'
+        )
+        return command
 
     @property
     def start_bit_packet(self) -> Optional[bytes]:

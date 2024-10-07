@@ -47,10 +47,11 @@ def exception_unit_wrapper(func):
                 f"function {func.__name__}"
             )
             status = StatusException()
-            status.error = True
-            status.type = type(e)
-            status.description = e
-            status.location = func.__name__
+            status.err = True
+            status.err_type = type(e)
+            status.err_args = args
+            status.err_str = e
+            status.err_func_name = func.__name__
 
             return status, None
 

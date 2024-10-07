@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABCMeta
-from typing import Optional
+from typing import Optional, Any
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from src.utils.message import PreMessage
@@ -130,10 +130,25 @@ class ProtocolInterface(object, metaclass=ABCMeta):
         :return:
         """
 
+    @abstractmethod
     def custom_start_end_packet(self, data: bytes) -> tuple[int, int]:
         """
         :param data:
         :return:
+        """
+
+    def create_command(
+            self,
+            imei: str,
+            command: bytes,
+            **kwargs: dict[Any, Any]
+    ) -> bytes:
+        """
+        Create command for send to device
+        :param imei: string imei
+        :param command: bytes main body of command
+        :param kwargs: extra parameters
+        :return: ready command for send to device
         """
 
     @property

@@ -1,7 +1,13 @@
+from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone
+
+
+class PacketTypeEnum(str, Enum):
+    MESSAGE = "message"
+    COMMAND_ANSWER = "command_answer"
 
 
 class Time(BaseModel):
@@ -19,18 +25,20 @@ class Navigation(BaseModel):
 
 
 class LBS(BaseModel):
-    hdop: Optional[float] = Field(default=0.0)
-    mcc: Optional[int] = Field(default=0)
-    mnc: Optional[int] = Field(default=0)
-    lac: Optional[int] = Field(default=0)
-    cid: Optional[int] = Field(default=0)
+    hdop: Optional[float] = Field(default=None)
+    mcc: Optional[int] = Field(default=None)
+    mnc: Optional[int] = Field(default=None)
+    lac: Optional[int] = Field(default=None)
+    cid: Optional[int] = Field(default=None)
 
 
 class PreMessage(BaseModel):
     time_: Optional[Time] = Time()
     navigation: Optional[Navigation] = Navigation()
-    lbs: Optional[LBS]
+    lbs: Optional[LBS] = LBS()
     parameters: Optional[dict[Any, Any]] = Field(default=dict())
+
+    packet_type: PacketTypeEnum = PacketTypeEnum.MESSAGE
 
 
 class Message(PreMessage):

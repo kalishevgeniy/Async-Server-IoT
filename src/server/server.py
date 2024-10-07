@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Type
+from typing import Optional, Type, AsyncIterator
 
 from src.auth.abstract import AbstractAuthorization
 from src.protocol.abstract import AbstractProtocol
@@ -30,7 +30,7 @@ async def run_server(
         protocol: Type[AbstractProtocol],
         server: Optional[ServerInterface] = None,
         authorization: Optional[AbstractAuthorization] = None,
-):
+) -> AsyncIterator[ServerInterface]:
     config: ServerConfig = _init_server_config(
         port=port,
         host=host,

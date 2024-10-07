@@ -122,3 +122,10 @@ class Unit:
 
     def update_buffer(self, bytes_: bytes):
         self._buffer.update_buffer(bytes_)
+
+    def create_command(self, command, **kwargs) -> bytes:
+        return self._handler.create_command(
+            command=command,
+            imei=self.imei,
+            **kwargs
+        )

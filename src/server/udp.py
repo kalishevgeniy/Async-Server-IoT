@@ -57,6 +57,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
         else:
             client_connection = self._client_connections[addr]
 
+        client_connection.connector: UDPConnector
         client_connection.connector.udp_data_update(data)
 
     def error_received(self, exc):

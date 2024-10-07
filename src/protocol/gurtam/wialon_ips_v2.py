@@ -1,7 +1,6 @@
 from datetime import datetime
 from time import time
-from typing import Optional
-
+from typing import Optional, Any
 
 from fastcrc import crc16
 
@@ -39,6 +38,14 @@ class WialonIPSv2(AbstractProtocol):
 
     def get_password(self) -> Optional[str]:
         return self.metadata.password
+
+    def create_command(
+            self,
+            imei: str,
+            command: bytes,
+            **kwargs: dict[Any, Any]
+    ) -> bytes:
+        return b'%b\r\n' % command
 
     def check_crc_login(self, login_packet: bytes) -> bool:
         body = login_packet[3:-6]

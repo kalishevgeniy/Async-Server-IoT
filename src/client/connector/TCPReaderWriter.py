@@ -80,6 +80,11 @@ class TCPReaderWriter(ConnectorAbstract):
         :param data: bytes
         :return: None
         """
-        if data:
-            self.writer.write(data)
-            await self.writer.drain()
+        if self.is_not_alive:
+            raise Exception("Connection was closed")
+
+        if not data:
+            return
+
+        self.writer.write(data)
+        await self.writer.drain()

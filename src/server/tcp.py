@@ -8,6 +8,7 @@ from src.client.connections import ClientConnections
 from src.client.connector.TCPReaderWriter import TCPReaderWriter
 from src.protocol.abstract import AbstractProtocol
 from src.server.intraface import ServerInterface
+from src.unit.unit import Unit
 from src.utils.config import ServerConfig
 
 import logging
@@ -30,6 +31,7 @@ class TCPServer(ServerInterface):
         self._server_is_work: asyncio.Event = asyncio.Event()
 
         self._client_connections: ClientConnections = ClientConnections()
+        # self._commands: Commands = Commands()
 
         self._msgs_queue = asyncio.Queue(config.queue_size)
 
@@ -76,18 +78,34 @@ class TCPServer(ServerInterface):
         # cancel current task work and close connection
         await self._client_connections.close_all()
 
+    async def send_command(
+            self,
+            command: bytes,
+            unit_id: Optional[int] = None,
+            imei: Optional[str] = None,
+    ) -> int:
+        if unit_id and self.authorization:
+            conn = self._client_connections.find_by_unit_id(unit_id)
+        else:
+            conn = self._client_connections.find_by_imei(imei)
+
+        await conn.send_command(command)
+
     async def _init_client_connection(
             self,
             reader: StreamReader,
             writer: StreamWriter,
             **kwargs
     ):
+        unit = Unit(
+            protocol=self.protocol,
+            authorization=self.authorization
+        )
         client_conn = ClientConnection(
             msgs_queue=self._msgs_queue,
-            protocol=self.protocol,
+            unit=unit,
             connector=TCPReaderWriter(reader=reader, writer=writer),
             server_status=self._server_is_work,
-            authorization=self.authorization,
             **kwargs
         )
 

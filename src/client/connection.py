@@ -1,11 +1,8 @@
 import asyncio
-from typing import Optional
 
-from src.auth.abstract import AbstractAuthorization
 from src.client.connector.abstract import ConnectorAbstract
-from src.protocol.abstract import AbstractProtocol
 from src.unit.unit import Unit
-from src.utils.message import Message
+from src.utils.message import PreMessage
 
 
 class ClientConnection:
@@ -13,23 +10,16 @@ class ClientConnection:
     def __init__(
             self,
             msgs_queue: asyncio.Queue,
-            protocol: AbstractProtocol,
             server_status: asyncio.Event,
             connector: ConnectorAbstract,
-            authorization: Optional[AbstractAuthorization] = None,
+            unit: Unit,
             *args,
             **kwargs
     ):
-        self.msgs_queue: asyncio.Queue[Message] = msgs_queue
-        self.protocol: AbstractProtocol = protocol
+        self.msgs_queue: asyncio.Queue[list[PreMessage]] = msgs_queue
         self.server_status: asyncio.Event = server_status
-        self.authorization: AbstractAuthorization = authorization
+        self.unit: Unit = unit
         self.connector = connector
-
-        self.unit = Unit(
-            protocol=self.protocol,
-            authorization=self.authorization
-        )
 
     async def run_client_loop(self):
         """
@@ -68,8 +58,7 @@ class ClientConnection:
                 answer = self.unit.create_answer(status)
 
                 if messages:
-                    for message in messages:
-                        await self.msgs_queue.put(message)
+                    await self.msgs_queue.put(messages)
 
                 await self.connector.send(answer)
 
@@ -81,3 +70,10 @@ class ClientConnection:
 
     async def close_connection(self):
         await self.connector.close_connection()
+
+    async def send_command(self, command, **kwargs):
+        ready_command = self.unit.create_command(
+            command=command,
+            **kwargs
+        )
+        await self.connector.send(ready_command)
