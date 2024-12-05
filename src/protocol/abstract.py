@@ -2,110 +2,104 @@ from typing import Optional, Any
 from venv import logger
 
 from src.status import StatusAuth, StatusException, StatusParsing
-from .interface import ProtocolInterface
-from ..utils.message import PreMessage
+from .interface import ProtocolInterface, MessageAnnotated
+from ..utils.message import LoginMessage
 from ..utils.meta import MetaData
 
 
 class AbstractProtocol(ProtocolInterface):
 
-    _START_BIT_PACKET: Optional[bytes] = None
-    _END_BIT_PACKET: Optional[bytes] = None
+    START_BIT_PACKET: Optional[bytes] = None
+    END_BIT_PACKET: Optional[bytes] = None
+    LEN_PACKET: Optional[int] = None
 
-    _START_BIT_LOGIN: Optional[bytes] = None
-    _END_BIT_LOGIN: Optional[bytes] = None
-    _LEN_LOGIN_PACKET: Optional[int] = None
-
-    def __init__(self):
-        self.metadata = MetaData()
+    START_BIT_LOGIN: Optional[bytes] = None
+    END_BIT_LOGIN: Optional[bytes] = None
+    LEN_LOGIN: Optional[int] = None
 
     def parsing_login_packet(
             self,
-            bytes_data: bytes
-    ) -> Optional[list[PreMessage]]:
+            bytes_: bytes,
+            meta: MetaData
+    ) -> LoginMessage:
         raise NotImplementedError
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
+            meta: MetaData
     ) -> Optional[bytes]:
         return None
 
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
+            meta: MetaData
     ) -> Optional[bytes]:
         return None
 
     def answer_login_packet(
             self,
             status: StatusAuth,
+            meta: MetaData
     ) -> bytes:
         raise NotImplementedError
 
     def parsing_packet(
             self,
-            bytes_data: bytes,
-    ) -> Optional[list[PreMessage]]:
+            bytes_: bytes,
+            meta: MetaData
+    ) -> MessageAnnotated:
         raise NotImplementedError
 
     def answer_packet(
             self,
             status: StatusParsing,
+            meta: MetaData
     ) -> Optional[bytes]:
         raise NotImplementedError
 
     def answer_exception(
             self,
             status: StatusException,
+            meta: MetaData
     ) -> Optional[bytes]:
         return None
 
-    def get_imei(self) -> Optional[str]:
-        raise NotImplementedError
-
-    def get_password(self) -> Optional[str]:
-        return None
-
-    def check_crc_login(self, login_packet: bytes) -> bool:
+    def check_crc_login(
+            self,
+            bytes_: bytes,
+            meta: MetaData
+    ) -> bool:
         return True
 
-    def check_crc_data(self, data_packet: bytes) -> bool:
+    def check_crc_data(
+            self,
+            bytes_: bytes,
+            meta: MetaData
+    ) -> bool:
         return True
 
-    def custom_start_end_login(self, data: bytes) -> tuple[int, int]:
+    def custom_start_end_login(
+            self,
+            bytes_: bytes
+    ) -> tuple[int, int]:
         raise NotImplementedError
 
-    def custom_start_end_packet(self, data: bytes) -> tuple[int, int]:
+    def custom_start_end_packet(
+            self,
+            bytes_: bytes
+    ) -> tuple[int, int]:
         raise NotImplementedError
 
     def create_command(
             self,
             imei: str,
             command: bytes,
-            **kwargs: dict[Any, Any]
+            meta: MetaData,
     ) -> bytes:
         logger.debug(
-            f'Send default command to object {imei} with command {command}'
+            f"Send default command to object {imei}"
+            f" with command {command.decode()}"
         )
         return command
-
-    @property
-    def start_bit_packet(self) -> Optional[bytes]:
-        return self._START_BIT_PACKET
-
-    @property
-    def end_bit_packet(self) -> Optional[bytes]:
-        return self._END_BIT_PACKET
-
-    @property
-    def start_bit_login(self) -> Optional[bytes]:
-        return self._START_BIT_LOGIN
-
-    @property
-    def end_bit_login(self) -> Optional[bytes]:
-        return self._END_BIT_LOGIN
-
-    @property
-    def len_login_packet(self) -> Optional[int]:
-        return self._LEN_LOGIN_PACKET

@@ -24,7 +24,7 @@ class ConnectorInterface(object, metaclass=abc.ABCMeta):
         """
 
     @abstractmethod
-    def execute_data(self) -> bytes:
+    def execute_bytes(self) -> bytes:
         """
         Execute data until he will br empty
         :return: bytes (data from connection)
@@ -39,6 +39,7 @@ class ConnectorInterface(object, metaclass=abc.ABCMeta):
         """
 
     @abstractmethod
+    @property
     def address(self) -> tuple[str, int]:
         """
         Return client socket address

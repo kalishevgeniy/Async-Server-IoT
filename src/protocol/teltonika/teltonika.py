@@ -10,7 +10,9 @@ from itertools import islice
 
 import logging
 
-from ...utils.message import PreMessage
+from ..interface import MessageAnnotated
+from ...utils.message import LoginMessage
+from ...utils.meta import MetaData
 
 
 def batched(iterable, n):
@@ -24,8 +26,8 @@ def batched(iterable, n):
 
 
 class Teltonika(AbstractProtocol):
-    _START_BIT_LOGIN = b'\x00'
-    _START_BIT_PACKET = b'\x00\x00\x00\x00'
+    START_BIT_LOGIN = b'\x00'
+    START_BIT_PACKET = b'\x00\x00\x00\x00'
 
     def __str__(self):
         return 'Teltonika'
@@ -38,43 +40,49 @@ class Teltonika(AbstractProtocol):
 
     def parsing_login_packet(
             self,
-            bytes_data: bytes
-    ) -> Optional[list[PreMessage]]:
-        self.metadata.imei = bytes_data.decode()
-        return None
-
-    def get_imei(self) -> Optional[str]:
-        return self.metadata.imei
+            bytes_: bytes,
+            meta: MetaData
+    ) -> LoginMessage:
+        return LoginMessage(
+            imei=bytes_.decode(),
+        )
 
     def answer_login_packet(
             self,
             status: StatusAuth,
+            meta: MetaData
     ) -> bytes:
         return b'\x01'
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
+            meta: MetaData,
     ) -> Optional[bytes]:
         return b'\x00'
 
-    def check_crc_data(self, data_packet: bytes) -> bool:
+    def check_crc_data(
+            self,
+            bytes_: bytes,
+            meta: MetaData,
+    ) -> bool:
         return (
-                crc16.arc(data_packet[4:-4])
+                crc16.arc(bytes_[4:-4])
                 ==
-                struct.unpack('>L', data_packet[-4:])[0]
+                struct.unpack('>L', bytes_[-4:])[0]
         )
 
     def parsing_packet(
             self,
             bytes_data: bytes,
-    ) -> Optional[list[PreMessage]]:
+            meta: MetaData,
+    ) -> MessageAnnotated:
 
         len_packet = len(bytes_data) - 11
         codec_id, number_data_1, number_data_2 = struct.unpack(
             f'>4x2B{len_packet}x1s4x', bytes_data
         )
-        self.metadata.all_count_packet = number_data_2
+        meta.all_count_packet = number_data_2
 
         match codec_id:
             case 0x08:
@@ -208,7 +216,7 @@ class Teltonika(AbstractProtocol):
                 len_value *= 2
 
             packet.update(
-                {
+                **{
                     'longitude': lon,
                     'latitude': lat,
                     'altitude': alt,
@@ -226,8 +234,9 @@ class Teltonika(AbstractProtocol):
     def answer_packet(
             self,
             status: StatusParsing,
+            meta: MetaData
     ) -> Optional[bytes]:
         return b''.join(
-            (b'\x00\x00\x00', self.metadata.all_count_packet)
+            (b'\x00\x00\x00', meta.all_count_packet)
         )
 

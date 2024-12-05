@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Optional
 
 from .abstract import Status
 
@@ -17,15 +16,25 @@ class StatusParsing(Status):
 
     @property
     def correct(self) -> bool:
-        return all(
-            (not self.err, self.crc)
-        )
+        return all((
+            not self.err, self.crc
+        ))
 
     def make_answer(
             self,
-            handler: AbstractProtocol
-    ) -> bytes:
+            handler: AbstractProtocol,
+            *args,
+            **kwargs
+    ) -> Optional[bytes]:
         if self.correct:
-            return handler.answer_packet(status=self)
+            return handler.answer_packet(
+                *args,
+                status=self,
+                **kwargs
+            )
         else:
-            return handler.answer_failed_data_packet(status=self)
+            return handler.answer_failed_data_packet(
+                *args,
+                status=self,
+                **kwargs
+            )

@@ -13,7 +13,7 @@ class ConnectorAbstract(ConnectorInterface):
     def new_data(self) -> bool:
         raise NotImplementedError
 
-    def execute_data(self) -> bytes:
+    def execute_bytes(self) -> bytes:
         raise NotImplementedError
 
     @property

@@ -1,64 +1,72 @@
 import asyncio
 import logging
-from asyncio import DatagramTransport
+import time
+from asyncio import DatagramTransport, transports
 from typing import Optional
 
-from src.auth.abstract import AbstractAuthorization
-from src.client.connection import ClientConnection
-from src.client.connections_udp import ClientConnectionsUDP
-from src.client.connector.UDPconnector import UDPConnector
+from src.auth.abstract import AbstractAuthorization, T
+from src.client.connections.connection import ClientConnection, Command
+from src.client.connections.connections import ClientConnections
+from src.client.connector.udp import ConnectorUDP
 from src.protocol.abstract import AbstractProtocol
-from src.server.intraface import ServerInterface
+from src.server.abstract import ServerAbstract
 from src.utils.config import ServerConfig
+from src.utils.datamanager import DataManager, MessagesIter, NewConnectionsIter
 
 
-from src.utils.message import Message
+class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
 
-
-class UDPServerProtocol(asyncio.DatagramProtocol):
     def __init__(
             self,
             protocol,
-            msgs_queue: asyncio.Queue,
+            authorization: AbstractAuthorization,
     ):
         self._transport: Optional[DatagramTransport] = None
-        self._msgs_queue = msgs_queue
-        self._client_connections = ClientConnectionsUDP()
+        self._data_manager = DataManager()
+        self._authorization = authorization
+        self._client_connections = ClientConnections()
 
         self._protocol = protocol
-
         self._server_is_work: asyncio.Event = asyncio.Event()
 
-    def connection_made(self, transport: DatagramTransport):
+        self.__connections_addresses = dict()
+
+    def connection_made(self, transport: DatagramTransport):  # type: ignore
         self._transport = transport
         self._server_is_work.set()
 
-    # def connection_lost(self, exc):
-    #     print('Connection lost', exc)
-    #
-    # def pause_writing(self):
-    #     print('Pause writing')
-    #
-    # def resume_writing(self):
-    #     print('Resume writing')
+    def connection_lost(self, exc):
+        logging.exception(f'UDP connection lost: {exc} {self}')
+
+    def pause_writing(self):
+        logging.exception(f'UDP pause writing {self}')
+
+    def resume_writing(self):
+        logging.exception(f'UDP resume writing {self}')
 
     def datagram_received(self, data, addr):
-        if addr not in self._client_connections:
+        if addr not in self.__connections_addresses:
             client_connection = ClientConnection(
-                msgs_queue=self._msgs_queue,
-                protocol=self._protocol,
+                data_manager=self._data_manager,
                 server_status=self._server_is_work,
-                connector=UDPConnector(
+                authorization=self._authorization,
+                protocol=self._protocol,
+                connector=ConnectorUDP(
                     address=addr,
                     transport=self._transport
                 ),
             )
+            task = asyncio.create_task(client_connection.run_client_loop())
             self._client_connections.add(client_connection)
+            self.__connections_addresses[addr] = (
+                client_connection,
+                task,
+                time.time()
+            )
         else:
-            client_connection = self._client_connections[addr]
+            client_connection = self.__connections_addresses[addr][0]
 
-        client_connection.connector: UDPConnector
-        client_connection.connector.udp_data_update(data)
+        client_connection.buffer.update(data)
 
     def error_received(self, exc):
         logging.exception(f'In UDP server get exception: {exc}')
@@ -68,29 +76,36 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
         self._server_is_work.clear()
         await self._client_connections.close_all()
 
+    async def run(self):
+        await asyncio.sleep(0)
 
-class UDPServer(ServerInterface):
+    async def send_command(self, command: bytes, unit_id: T) -> Command:
+        client_connection = self._client_connections.find(unit_id)
+        command_send = await client_connection.send_command(command)
+        return command_send
+
+    @property
+    def messages(self) -> MessagesIter:
+        return self._data_manager.messages
+
+    @property
+    def new_connection(self) -> NewConnectionsIter:
+        return self._data_manager.new_connections
+
+
+class UDPServer(ServerAbstract):
     def __init__(
             self,
             config: ServerConfig,
             protocol: AbstractProtocol,
-            authorization: Optional[AbstractAuthorization] = None,
+            authorization: AbstractAuthorization,
     ):
-        self.config = config
-        self.protocol = protocol
-        self.authorization = authorization
+        self._config = config
+        self._protocol_parsing = protocol
+        self._authorization = authorization
 
         self._protocol: Optional[UDPServerProtocol] = None
-        self._msgs_queue: asyncio.Queue = asyncio.Queue()
-
-    def exec_msgs(self, count: int) -> list[Message]:
-        pass
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        return await self._msgs_queue.get()
+        self._messages = DataManager()
 
     async def run(self):
         loop = asyncio.get_running_loop()
@@ -99,11 +114,22 @@ class UDPServer(ServerInterface):
         # client requests.
         _, self._protocol = await loop.create_datagram_endpoint(
             lambda: UDPServerProtocol(
-                protocol=self.protocol,
-                msgs_queue=self._msgs_queue,
+                protocol=self._protocol,
+                authorization=self._authorization,
             ),
-            local_addr=('0.0.0.0', 50_000)
+            local_addr=(str(self._config.host), self._config.port)
         )
 
     async def stop(self):
         await self._protocol.stop()
+
+    async def send_command(self, command: bytes, unit_id: T) -> Command:
+        return await self._protocol.send_command(command, unit_id)
+
+    @property
+    def messages(self) -> MessagesIter:
+        return self._protocol.messages
+
+    @property
+    def new_connection(self) -> NewConnectionsIter:
+        return self._protocol.new_connection

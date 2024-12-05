@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from functools import wraps
 from typing import Optional, TYPE_CHECKING
 
 
@@ -12,28 +14,39 @@ if TYPE_CHECKING:
 class StatusException(Status):
     __slots__ = 'err', 'err_type', 'err_args', 'err_str', 'err_func_name'
 
-    def __init__(self):
-        self.err: bool = False
-        self.err_type: Optional[Exception] = None
-        self.err_args: Optional[tuple] = None
-        self.err_str: Optional[str] = None
-        self.err_func_name: Optional[str] = None
+    def __init__(
+            self,
+            err: bool,
+            err_type: Exception,
+            err_args: tuple,
+            err_str: str,
+            err_func_name: str
+    ):
+        self._err = err
+        self.err_type = err_type
+        self.err_args = err_args
+        self.err_str = err_str
+        self.err_func_name = err_func_name
 
     def __repr__(self):
         return repr(self)
 
     @property
     def correct(self) -> bool:
-        return not self.err
+        return not self._err
 
     def make_answer(
             self,
-            handler: AbstractProtocol
-    ) -> bytes:
-        return handler.answer_exception(status=self)
+            handler: AbstractProtocol,
+            *args,
+            **kwargs
+    ) -> Optional[bytes]:
+        return handler.answer_exception(status=self, **kwargs)
 
 
-def exception_unit_wrapper(func):
+def exception_wrapper(func):
+
+    @wraps(func)
     def exception_analyze(
             *args,
             **kwargs
@@ -46,12 +59,13 @@ def exception_unit_wrapper(func):
                 f"arguments {(args, kwargs)} \n"
                 f"function {func.__name__}"
             )
-            status = StatusException()
-            status.err = True
-            status.err_type = type(e)
-            status.err_args = args
-            status.err_str = e
-            status.err_func_name = func.__name__
+            status = StatusException(
+                err=True,
+                err_type=e,
+                err_args=e.args,
+                err_str=str(e),
+                err_func_name=func.__name__
+            )
 
             return status, None
 

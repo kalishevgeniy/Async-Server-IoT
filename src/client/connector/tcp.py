@@ -7,7 +7,7 @@ from socket import socket
 from src.client.connector.abstract import ConnectorAbstract
 
 
-class TCPReaderWriter(ConnectorAbstract):
+class ConnectorTCP(ConnectorAbstract):
     __slots__ = (
         "reader", "writer",
         "_reader_queue",
@@ -22,7 +22,7 @@ class TCPReaderWriter(ConnectorAbstract):
         self.reader = reader
         self.writer = writer
 
-        self._reader_queue = Queue()
+        self._reader_queue: Queue[bytes] = Queue()
         self._task_reader = asyncio.create_task(self._reader_from_socket())
 
     @property
@@ -37,11 +37,11 @@ class TCPReaderWriter(ConnectorAbstract):
             return False
         return True
 
-    def execute_data(self) -> bytes:
-        data_return = list()
+    def execute_bytes(self) -> bytes:
+        bytes_ = bytes()
         while not self._reader_queue.empty():
-            data_return.append(self._reader_queue.get_nowait())
-        return b''.join(data_return)
+            bytes_ += self._reader_queue.get_nowait()
+        return bytes_
 
     def get_socket(self) -> socket:
         return self.writer.get_extra_info('socket')
@@ -67,7 +67,10 @@ class TCPReaderWriter(ConnectorAbstract):
                 self.writer.wait_closed(),
                 timeout=10
             )
-            self._task_reader.cancel()
+
+            if not self._task_reader.done():
+                self._task_reader.cancel()
+
         except asyncio.TimeoutError:
             logging.debug('Close client connection')
         except ConnectionResetError as e:

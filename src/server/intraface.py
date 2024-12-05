@@ -1,17 +1,11 @@
 from abc import ABCMeta
-from typing import Optional
 
-from src.utils.message import Message
+from src.auth.abstract import T
+from src.client.connections.connection import Command
+from src.utils.datamanager import MessagesIter, NewConnectionsIter
 
 
 class ServerInterface(object, metaclass=ABCMeta):
-
-    def exec_msgs(self, count: int) -> list[Message]:
-        """
-        Return message already get
-        :return:
-        """
-        raise NotImplementedError
 
     async def run(self):
         """
@@ -31,14 +25,28 @@ class ServerInterface(object, metaclass=ABCMeta):
     async def send_command(
             self,
             command: bytes,
-            unit_id: Optional[int] = None,
-            imei: Optional[str] = None,
-    ) -> int:
+            unit_id: T,
+    ) -> Command:
         """
         Send command to object connection
-        :param unit_id: used ONLY with class AbstractAuthorization!
-        :param imei: unique identifier of object
+        :param unit_id:
         :param command: command to be sent
         :return: ID command use for check answer from object
+        """
+        raise NotImplementedError
+
+    @property
+    def messages(self) -> MessagesIter:
+        """
+        Return messages iterator
+        :return: MessagesIter
+        """
+        raise NotImplementedError
+
+    @property
+    def new_connection(self) -> NewConnectionsIter:
+        """
+        Return new connections iterator
+        :return: NewConnectionsIter
         """
         raise NotImplementedError

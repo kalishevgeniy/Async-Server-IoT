@@ -1,10 +1,12 @@
 import logging
-from typing import Optional, Type, AsyncIterator
+from typing import Type, AsyncIterator
+
+from pydantic import IPvAnyAddress
 
 from src.auth.abstract import AbstractAuthorization
 from src.protocol.abstract import AbstractProtocol
+from src.server.abstract import ServerAbstract
 
-from src.server.intraface import ServerInterface
 from src.server.tcp import TCPServer
 from src.utils.config import ServerConfig
 
@@ -12,7 +14,7 @@ from contextlib import asynccontextmanager
 
 
 def _init_server_config(
-        host: str,
+        host: IPvAnyAddress,
         port: int,
         **kwargs
 ) -> ServerConfig:
@@ -25,12 +27,12 @@ def _init_server_config(
 
 @asynccontextmanager
 async def run_server(
-        host: str,
+        host: IPvAnyAddress,
         port: int,
         protocol: Type[AbstractProtocol],
-        server: Optional[ServerInterface] = None,
-        authorization: Optional[AbstractAuthorization] = None,
-) -> AsyncIterator[ServerInterface]:
+        authorization: AbstractAuthorization,
+        server: Type[ServerAbstract] = TCPServer,
+) -> AsyncIterator[ServerAbstract]:
     config: ServerConfig = _init_server_config(
         port=port,
         host=host,
@@ -45,8 +47,8 @@ async def run_server(
         protocol=protocol(),
         authorization=authorization,
     )
-    await _server.run()
     try:
+        await _server.run()
         yield _server
     finally:
         await _server.stop()

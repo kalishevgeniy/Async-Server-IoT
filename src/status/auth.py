@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 
 from .abstract import Status
-
 
 if TYPE_CHECKING:
     from ..protocol.abstract import AbstractProtocol
@@ -23,14 +22,19 @@ class StatusAuth(Status):
     @property
     def correct(self) -> bool:
         return all((
-            self.crc, self.authorization, self.password, not self.error
+            self.crc,
+            self.authorization,
+            self.password,
+            not self.error
         ))
 
     def make_answer(
             self,
-            handler: AbstractProtocol
-    ) -> bytes:
+            handler: AbstractProtocol,
+            *args: Any,
+            **kwargs: Any
+    ) -> Optional[bytes]:
         if self.correct:
-            return handler.answer_login_packet(status=self)
+            return handler.answer_login_packet(status=self, **kwargs)
         else:
-            return handler.answer_failed_login_packet(status=self)
+            return handler.answer_failed_login_packet(status=self, **kwargs)

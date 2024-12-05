@@ -7,7 +7,7 @@ from socket import socket
 from src.client.connector.abstract import ConnectorAbstract
 
 
-class UDPConnector(ConnectorAbstract):
+class ConnectorUDP(ConnectorAbstract):
     def __init__(
             self,
             address: tuple,
@@ -28,7 +28,7 @@ class UDPConnector(ConnectorAbstract):
     def new_data(self) -> bool:
         return True if self._data else False
 
-    def execute_data(self) -> bytes:
+    def execute_bytes(self) -> bytes:
         data = self._data[:]
         self._data = bytes()
         return data
@@ -50,5 +50,5 @@ class UDPConnector(ConnectorAbstract):
         self.__transport.sendto(data, (self._ip, self._port))
         await asyncio.sleep(0)
 
-    def udp_data_update(self, data: bytes):
+    def update(self, data: bytes):
         self._data += data
