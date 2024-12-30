@@ -22,7 +22,7 @@ class ConnectorTCP(ConnectorAbstract):
         self.reader = reader
         self.writer = writer
 
-        self._reader_queue: Queue[bytes] = Queue()
+        self._reader_queue: Queue[bytes] = Queue(maxsize=5)
         self._task_reader = asyncio.create_task(self._reader_from_socket())
 
     @property
@@ -48,7 +48,7 @@ class ConnectorTCP(ConnectorAbstract):
 
     async def _reader_from_socket(self):
         while True:
-            data = await self.reader.read(1_000)
+            data = await self.reader.read(1024)
 
             if not data:
                 return True
@@ -75,7 +75,7 @@ class ConnectorTCP(ConnectorAbstract):
             logging.debug('Close client connection')
         except ConnectionResetError as e:
             _exception = self._task_reader.exception()
-            logging.debug(f"Exception {e} \r\n Task exception {_exception}")
+            logging.debug(_exception)
 
     async def send(self, data: bytes):
         """

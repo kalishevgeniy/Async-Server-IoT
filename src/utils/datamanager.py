@@ -1,56 +1,83 @@
 import asyncio
-from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from collections.abc import AsyncIterator, AsyncGenerator
+from datetime import datetime
+from time import time
+from typing import Generic, TypeVar
+
+from src.protocol.interface import MessageAnnotated
+from src.utils.unit import Unit
+
+T = TypeVar("T")
 
 
-class NewConnectionsIter(AsyncIterator):
+@dataclass
+class Packet:
+    packet: bytes
+    client_port: int
+    client_ip: str
+    time_received: datetime
 
+    def __repr__(self):
+        return (
+            f"Packet("
+            f"client_ip={self.client_ip},"
+            f"client_port={self.client_port},"
+            f"time_received={self.time_received},"
+            f"packet={self.packet[:20].decode()}..."
+            f")"
+        )
+
+
+@dataclass
+class Command:
+    command_body: bytes
+    command_send: bytes
+    time_sent: float = time()
+
+
+@dataclass
+class Data:
+    unit: Unit
+    packet: Packet
+    answer: bytes
+    message: list[MessageAnnotated]
+
+
+class QueueIter(Generic[T], AsyncIterator):
     def __init__(self):
-        self._new_connections_iter = asyncio.Queue()
+        self._queue = asyncio.Queue()
 
     async def __anext__(self):
-        while not self._new_connections_iter.empty():
-            return await self._new_connections_iter.get()
+        while not self._queue.empty():
+            return await self._queue.get()
+
+        await asyncio.sleep(0)
         raise StopAsyncIteration
 
     def __aiter__(self):
         return self
 
-    async def put(self, item):
-        await self._new_connections_iter.put(item)
+    async def inf(self) -> AsyncGenerator[T]:
+        while True:
+            yield await self._queue.get()
 
-    async def get(self):
-        return await self._new_connections_iter.get()
+    async def put(self, item: T):
+        await self._queue.put(item)
 
-
-class MessagesIter(AsyncIterator):
-
-    def __init__(self):
-        self._messages = asyncio.Queue()
-
-    async def __anext__(self):
-        while not self._messages.empty():
-            return await self._messages.get()
-        raise StopAsyncIteration
-
-    def __aiter__(self):
-        return self
-
-    async def put(self, item):
-        await self._messages.put(item)
-
-    async def get(self):
-        return await self._messages.get()
+    async def get(self) -> T:
+        return await self._queue.get()
 
 
 class DataManager:
     def __init__(self):
-        self._messages_iter = MessagesIter()
-        self._new_connections_iter = NewConnectionsIter()
+        self._messages_iter: QueueIter[Data] = QueueIter()
+        self._new_connections_iter: QueueIter[Unit] = QueueIter()
 
     @property
-    def messages(self):
+    def messages(self) -> QueueIter[Data]:
         return self._messages_iter
 
     @property
-    def new_connections(self):
+    def new_connections(self) -> QueueIter[Unit]:
         return self._new_connections_iter

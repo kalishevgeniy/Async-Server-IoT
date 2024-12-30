@@ -9,6 +9,7 @@ from src.status.auth import StatusAuth
 from src.status.parsing import StatusParsing
 from src.utils.message import Message, LoginMessage, Navigation, LBS
 from src.utils.meta import MetaData
+from src.utils.unit import Unit
 
 
 class WialonIPSv2(AbstractProtocol):
@@ -19,14 +20,18 @@ class WialonIPSv2(AbstractProtocol):
     END_BIT_LOGIN: bytes = END_BIT_PACKET
 
     _EMPTY = b'NA'
+    TYPE = 'wialon_ips_v2'
 
     def __str__(self):
+        return 'WialonIPSv2'
+
+    def __repr__(self):
         return 'WialonIPSv2'
 
     def parsing_login_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> LoginMessage:
         _, _, data = bytes_.split(b'#')
         protocol_version, imei, password, _ = data.split(b';')
@@ -38,39 +43,39 @@ class WialonIPSv2(AbstractProtocol):
 
     def create_command(
             self,
-            imei: str,
             command: bytes,
-            meta: MetaData,
+            unit: Unit,
     ) -> bytes:
         return b'%b\r\n' % command
 
     def check_crc_login(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
-        body = bytes_[3:-6]
-        crc = bytes_[-6:-2]
+        body, crc = bytes_.rsplit(b';', 1)
+        body = body[3:] + b';'
+        crc = crc[:-2]
         return int(crc, 16) == crc16.arc(body)
 
     def check_crc_data(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
-        return self.check_crc_login(bytes_=bytes_, meta=meta)
+        return self.check_crc_login(bytes_=bytes_, unit=unit)
 
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> bytes:
         return b'#AL#1\r\n'
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         if status.error or status.authorization or status.crc:
             return b'#AL#0\r\n'
@@ -84,24 +89,25 @@ class WialonIPSv2(AbstractProtocol):
     def answer_failed_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         pass
 
     def answer_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
-        return b"#A%b#1\r\n" % b'B'
+        return b"#A%b#1\r\n" % unit.metadata.last_type_packet
 
     def parsing_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> MessageAnnotated:
         _, packet_type, data = bytes_.split(b'#')
 
+        packets = None
         match packet_type:
             case b'D':
                 packets = [self._parse_packet_d(data)]
@@ -109,10 +115,8 @@ class WialonIPSv2(AbstractProtocol):
                 packets = [self._parse_packet_sd(data)]
             case b'B':
                 packets = self._parse_packet_b(data)
-            case _:
-                packets = None
 
-        meta.last_type_packet = packet_type
+        unit.metadata.last_type_packet = packet_type
         return packets
 
     def _parse_packet_sd(self, bytes_: bytes) -> Message:
@@ -133,8 +137,8 @@ class WialonIPSv2(AbstractProtocol):
             speed, course, alt, sats
         )
 
-        if hdop := float(hdop) if hdop != self._EMPTY else None:
-            message.lbs = LBS(hdop=hdop)
+        if hdop_ := float(hdop) if hdop != self._EMPTY else None:
+            message.lbs = LBS(hdop=hdop_)
 
         message.parameters = dict()
         message.parameters.update(**{
@@ -198,9 +202,9 @@ class WialonIPSv2(AbstractProtocol):
             navigation=Navigation(
                 latitude=self._get_lat(lat, lat_dir),
                 longitude=self._get_lon(lon, lon_dir),
-                speed=float(speed) if speed != self._EMPTY else 0,
+                speed=int(speed) if speed != self._EMPTY else 0,
                 course=int(course) if course != self._EMPTY else 0,
-                altitude=float(alt) if alt != self._EMPTY else 0,
+                altitude=float(alt) if alt != self._EMPTY else 0.0,
                 satellites=int(sats) if sats != self._EMPTY else 0,
             )
         )

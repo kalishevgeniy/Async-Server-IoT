@@ -1,4 +1,5 @@
 import asyncio
+
 from src.client.connections.connection import ClientConnection
 
 
@@ -8,22 +9,18 @@ class UnitNotFount(ValueError):
 
 class ClientConnections:
     def __init__(self):
-        self._client_connections = dict()
-        self._ind = dict()
-        self._new_connections: set[ClientConnection] = set()
+        # unit.id: ClientConnection
+        self._client_connections: [int, ClientConnection] = dict()
+        self._unregistered_connections: set[ClientConnection] = set()
 
     def add(self, connection: ClientConnection):
-        self._new_connections.add(connection)
-        self._register_new_connection()
+        self._unregistered_connections.add(connection)
 
     def remove(self, connection: ClientConnection):
-
-        ind_ = self._ind.pop(connection.__hash__(), None)
-
-        if ind_:
-            self._client_connections.pop(ind_, None)
-        else:
-            self._new_connections.remove(connection)
+        if connection.unit.id in self._client_connections:
+            self._client_connections.pop(connection.unit.id, None)
+        elif connection.unit.id in self._unregistered_connections:
+            self._unregistered_connections.remove(connection.unit.id)
 
     def find(
             self,
@@ -41,17 +38,14 @@ class ClientConnections:
             for connection in self._client_connections.values():
                 tg.create_task(connection.close_connection())
 
-            for connection in self._new_connections:
+            for connection in self._unregistered_connections:
                 tg.create_task(connection.close_connection())
 
-        self._client_connections = None
-        self._new_connections = None
-        self._ind = None
+        self._client_connections = dict()
+        self._unregistered_connections = set()
 
     def _register_new_connection(self):
-        for new_connection in self._new_connections:
-            if id_ := new_connection.authorization.id:
-                self._client_connections[id_] = new_connection
-                self._ind[new_connection.__hash__()] = id_
-
-                self._new_connections.discard(id_)
+        for un_conn in self._unregistered_connections:
+            if un_conn.unit.id:
+                self._client_connections[un_conn.unit.id] = un_conn
+                self._unregistered_connections.discard(un_conn)

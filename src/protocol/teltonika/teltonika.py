@@ -11,7 +11,7 @@ from itertools import islice
 import logging
 
 from ..interface import MessageAnnotated
-from ...utils.message import LoginMessage
+from ...utils.message import LoginMessage, Message, Navigation
 from ...utils.meta import MetaData
 
 
@@ -80,7 +80,8 @@ class Teltonika(AbstractProtocol):
 
         len_packet = len(bytes_data) - 11
         codec_id, number_data_1, number_data_2 = struct.unpack(
-            f'>4x2B{len_packet}x1s4x', bytes_data
+            f'>4x2B{len_packet}x1s4x',
+            bytes_data
         )
         meta.all_count_packet = number_data_2
 
@@ -115,14 +116,15 @@ class Teltonika(AbstractProtocol):
         )
         return dict(batch)
 
-    def _parsing_codec_8(self, bytes_data: bytes) -> list[dict]:
+    def _parsing_codec_8(self, bytes_data: bytes) -> MessageAnnotated:
         packets_return = list()
 
         while bytes_data:
-            packet = dict()
+            params = dict()
 
-            _time, priority = struct.unpack('>QB', bytes_data[:9])
-            lon, lat, alt, angle, sats, speed = self._gps_data(bytes_data[9:24])
+            time_, priority = struct.unpack('>QB', bytes_data[:9])
+            lon, lat, alt, angle, sats, speed = self._gps_data(
+                bytes_data[9:24])
 
             event_io_id, n_total_id = struct.unpack('>2B', bytes_data[24:26])
             bytes_data = bytes_data[26:]
@@ -135,26 +137,30 @@ class Teltonika(AbstractProtocol):
                     struct_str={1: 'B', 2: 'H', 4: 'I', 8: 'Q'}[len_value],
                     len_sub_packet=len_sub_p,
                 )
-                packet.update(dict_values)
+                params.update(dict_values)
 
                 bytes_data = bytes_data[1 + len_sub_p + len_sub_p * len_value:]
 
                 n_total_id -= len_sub_p
                 len_value *= 2
 
-            packet.update(
-                {
-                    'longitude': lon,
-                    'latitude': lat,
-                    'altitude': alt,
-                    'angle': angle,
-                    'satellites': sats,
-                    'speed': speed,
-                    'time': _time,
-                    'priority': priority
-                }
+            packets_return.append(
+                Message(
+                    time_=time_,
+                    navigation=Navigation(
+                        latitude=lat,
+                        longitude=lon,
+                        altitude=alt,
+                        course=angle,
+                        satellites=sats,
+                        speed=speed,
+                    ),
+                    parameters={
+                        'priority': priority,
+                        **params,
+                    }
+                )
             )
-            packets_return.append(packet)
 
         return packets_return
 
@@ -171,13 +177,13 @@ class Teltonika(AbstractProtocol):
         lon = (lon & 0x7F_FF_FF_FF * direction) / 10_000_000
         return lon, lat, alt, angle, sats, speed
 
-    def _parsing_codec_8e(self, bytes_data: bytes) -> list[dict]:
+    def _parsing_codec_8e(self, bytes_data: bytes) -> MessageAnnotated:
         packets_return = list()
 
         while bytes_data:
-            packet = dict()
+            params = dict()
 
-            _time, priority = struct.unpack('>QB', bytes_data[:9])
+            time_, priority = struct.unpack('>QB', bytes_data[:9])
             lon, lat, alt, angle, sats, speed = self._gps_data(
                 bytes_data[9:24])
 
@@ -193,8 +199,8 @@ class Teltonika(AbstractProtocol):
                     while count_extend:
                         name, len_value = struct.unpack('>2H', bytes_data[0:4])
 
-                        packet[name] = bytes_data[4:len_value+4].hex()
-                        bytes_data = bytes_data[len_value+4:]
+                        params[name] = bytes_data[4:len_value + 4].hex()
+                        bytes_data = bytes_data[len_value + 4:]
                         count_extend -= 1
 
                     break
@@ -208,26 +214,31 @@ class Teltonika(AbstractProtocol):
                     len_sub_packet=len_sub_p,
                     packet_name='H'
                 )
-                packet.update(dict_values)
+                params.update(dict_values)
 
-                bytes_data = bytes_data[2 + len_sub_p * 2 + len_sub_p * len_value:]
+                bytes_data = bytes_data[
+                             2 + len_sub_p * 2 + len_sub_p * len_value:]
 
                 n_total_id -= len_sub_p
                 len_value *= 2
 
-            packet.update(
-                **{
-                    'longitude': lon,
-                    'latitude': lat,
-                    'altitude': alt,
-                    'angle': angle,
-                    'satellites': sats,
-                    'speed': speed,
-                    'time': _time,
-                    'priority': priority
-                }
+            packets_return.append(
+                Message(
+                    time_=time_,
+                    navigation=Navigation(
+                        latitude=lat,
+                        longitude=lon,
+                        altitude=alt,
+                        course=angle,
+                        satellites=sats,
+                        speed=speed,
+                    ),
+                    parameters={
+                        'priority': priority,
+                        **params,
+                    }
+                )
             )
-            packets_return.append(packet)
 
         return packets_return
 
@@ -239,4 +250,3 @@ class Teltonika(AbstractProtocol):
         return b''.join(
             (b'\x00\x00\x00', meta.all_count_packet)
         )
-

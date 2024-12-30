@@ -1,10 +1,11 @@
-from typing import Optional, Any
+from typing import Optional
 from venv import logger
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface, MessageAnnotated
 from ..utils.message import LoginMessage
 from ..utils.meta import MetaData
+from ..utils.unit import Unit
 
 
 class AbstractProtocol(ProtocolInterface):
@@ -17,66 +18,68 @@ class AbstractProtocol(ProtocolInterface):
     END_BIT_LOGIN: Optional[bytes] = None
     LEN_LOGIN: Optional[int] = None
 
+    TYPE: Optional[str] = None
+
     def parsing_login_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> LoginMessage:
         raise NotImplementedError
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         return None
 
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         return None
 
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> bytes:
         raise NotImplementedError
 
     def parsing_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> MessageAnnotated:
         raise NotImplementedError
 
     def answer_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         raise NotImplementedError
 
     def answer_exception(
             self,
             status: StatusException,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         return None
 
     def check_crc_login(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
         return True
 
     def check_crc_data(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
         return True
 
@@ -94,12 +97,11 @@ class AbstractProtocol(ProtocolInterface):
 
     def create_command(
             self,
-            imei: str,
             command: bytes,
-            meta: MetaData,
+            unit: Unit,
     ) -> bytes:
         logger.debug(
-            f"Send default command to object {imei}"
+            f"Send default command to object {unit.imei}"
             f" with command {command.decode()}"
         )
         return command

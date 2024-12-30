@@ -8,13 +8,13 @@ addr = Union[IPv4Address, IPv6Address]
 class ServerConfig:
     def __init__(
             self,
-            host: str,
+            host: Union[str, IPv4Address, IPv6Address],
             port: int,
             local_buffer_size: int = 1024 * 1024,
             queue_size: int = 10_000,
             **kwargs
     ):
-        self.host = host
+        self.host = host                                # type: ignore
         self.port = port
         self.local_buffer_size = local_buffer_size
         self.queue_size = queue_size
@@ -33,6 +33,10 @@ class ServerConfig:
             f"kwargs={self.__attrs})"
         )
 
+    @property
+    def extra(self) -> dict:
+        return self.__attrs
+
     def __getattr__(self, item):
         return self.__attrs[item]
 
@@ -41,8 +45,10 @@ class ServerConfig:
         return self._host
 
     @host.setter
-    def host(self, value: str):
-        self._host = IPvAnyAddress(value)
+    def host(self, value: Union[str, IPv4Address, IPv6Address]):
+        if isinstance(value, (IPv4Address, IPv6Address)):
+            self._host = value
+        self._host = IPvAnyAddress(value)                   # type:ignore
 
     @property
     def port(self):

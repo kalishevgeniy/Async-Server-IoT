@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 
+from traceback import format_exc as tb
 
 from .abstract import Status
 import logging
@@ -50,14 +51,14 @@ def exception_wrapper(func):
     def exception_analyze(
             *args,
             **kwargs
-    ) -> tuple[StatusException, Optional[list[dict]]]:
+    ) -> tuple[StatusException, Optional[Any], bytes]:
         try:
             return func(*args, **kwargs)
         except Exception as e:
             logging.error(
                 f"Parsing exception {e} \n"
                 f"arguments {(args, kwargs)} \n"
-                f"function {func.__name__}"
+                f"traceback {tb()}"
             )
             status = StatusException(
                 err=True,
@@ -66,7 +67,8 @@ def exception_wrapper(func):
                 err_str=str(e),
                 err_func_name=func.__name__
             )
+            func(*args, **kwargs)
 
-            return status, None
+            return status, None, b''
 
     return exception_analyze

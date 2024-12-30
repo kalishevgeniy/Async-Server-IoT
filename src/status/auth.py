@@ -8,16 +8,25 @@ if TYPE_CHECKING:
 
 
 class StatusAuth(Status):
-    __slots__ = "crc", "authorization", "password", "error"
+    __slots__ = "_crc", "_authorization", "_password", "_error"
 
-    def __init__(self):
-        self.crc: Optional[bool] = None
-        self.authorization: Optional[bool] = None
-        self.password: Optional[bool] = None
-        self.error = None
+    def __init__(
+            self,
+            crc: bool = True,
+            authorization: bool = True,
+            password: bool = True,
+            error: bool = False,
+            description: Optional[str] = None,
+    ):
+        self.crc: bool = crc
+        self.authorization: bool = authorization
+        self.password: bool = password
+        self.error = error
+
+        self._description = description
 
     def __repr__(self):
-        return f"Status authorization: {self.correct}"
+        return f"Status authorization: {self.correct} {self._description}"
 
     @property
     def correct(self) -> bool:

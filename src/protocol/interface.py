@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from src.utils.message import LoginMessage, Message
-from src.utils.meta import MetaData
+from src.utils.unit import Unit
 
 MessageAnnotated = Union[list[Message], Message, None]
 
@@ -13,7 +13,7 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     __slots__ = (
         'START_BIT_PACKET', 'END_BIT_PACKET',
         'START_BIT_LOGIN', 'END_BIT_LOGIN',
-        'LEN_LOGIN'
+        'LEN_LOGIN', 'TYPE'
     )
 
     START_BIT_PACKET: Optional[bytes]
@@ -24,15 +24,17 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     END_BIT_LOGIN: Optional[bytes]
     LEN_LOGIN: Optional[int]
 
+    TYPE: Optional[str]
+
     @abstractmethod
     def parsing_login_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> LoginMessage:
         """
         :param bytes_:
-        :param meta:
+        :param unit:
         :return: LoginMessage
         """
 
@@ -40,11 +42,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -52,11 +54,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def parsing_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> MessageAnnotated:
         """
         :param bytes_:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -64,11 +66,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -76,11 +78,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_failed_data_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -88,11 +90,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -100,11 +102,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def answer_exception(
             self,
             status: StatusException,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         """
         :param status:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -112,11 +114,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def check_crc_login(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
         """
         :param bytes_:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -124,11 +126,11 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     def check_crc_data(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> bool:
         """
         :param bytes_:
-        :param meta:
+        :param unit:
         :return:
         """
 
@@ -149,14 +151,12 @@ class ProtocolInterface(object, metaclass=ABCMeta):
     @abstractmethod
     def create_command(
             self,
-            imei: str,
             command: bytes,
-            meta: MetaData,
+            unit: Unit,
     ) -> bytes:
         """
         Create command for send to device
-        :param imei: string imei
         :param command: bytes main body of command
-        :param meta:
+        :param unit:
         :return: ready command for send to device
         """

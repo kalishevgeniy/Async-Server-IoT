@@ -38,8 +38,8 @@ class ConnectorInterface(object, metaclass=abc.ABCMeta):
         :return: socket
         """
 
-    @abstractmethod
     @property
+    @abstractmethod
     def address(self) -> tuple[str, int]:
         """
         Return client socket address

@@ -1,4 +1,5 @@
 from socket import socket
+from typing import TypeVar
 
 from src.client.connector.interface import ConnectorInterface
 
@@ -29,3 +30,6 @@ class ConnectorAbstract(ConnectorInterface):
 
     async def send(self, data: bytes):
         raise NotImplementedError
+
+
+T = TypeVar('T', bound=ConnectorAbstract)

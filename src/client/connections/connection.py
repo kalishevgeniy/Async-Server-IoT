@@ -1,44 +1,19 @@
 import asyncio
-import logging
-from time import time
-from typing import TypeVar, Optional
-
-from pydantic import BaseModel
+from datetime import datetime
 
 from src.auth.abstract import (
     AbstractAuthorization,
     UnitNotExist,
     IncorrectPassword
 )
-from src.client.connector.abstract import ConnectorAbstract
+from src.client.connector.abstract import T
+from src.protocol.parser import PacketParser
 from src.protocol.abstract import AbstractProtocol
 from src.protocol.interface import MessageAnnotated
-from src.status import exception_wrapper, StatusParsing, StatusAuth
 from src.status.abstract import Status
 from src.utils.buffer import Buffer
-from src.utils.datamanager import DataManager
-from src.utils.meta import MetaData
-
-T = TypeVar('T', bound=ConnectorAbstract)
-
-
-class Packet(BaseModel):
-    time_received: float = time()
-    packet: bytes
-    client_port: int
-    client_ip: str
-
-
-class Command(BaseModel):
-    time_sent: float = time()
-    command_body: bytes
-    command_send: bytes
-
-
-class Data(BaseModel):
-    packet: Packet
-    answer: bytes
-    message: list[MessageAnnotated]
+from src.utils.datamanager import DataManager, Packet, Command, Data
+from src.utils.unit import Unit
 
 
 class ClientConnection:
@@ -58,11 +33,21 @@ class ClientConnection:
         self.authorization: AbstractAuthorization = authorization
         self.connector: T = connector
         self.protocol: AbstractProtocol = protocol
-        self.metadata: MetaData = MetaData()
+        self.unit = Unit()
+        self.parser = PacketParser(protocol)
         self.buffer = Buffer(
             handler=protocol,
             *args,
             **kwargs
+        )
+
+    def __repr__(self):
+        return (
+            f'<ClientConnection '
+            f'unit={self.unit.imei} '
+            f'protocol={self.protocol} '
+            f'raddr={self.connector.address}'
+            f'>'
         )
 
     async def run_client_loop(self):
@@ -82,37 +67,52 @@ class ClientConnection:
         await asyncio.sleep(0)
         while self.server_status.is_set():
 
-            if self.connector.new_data:
+            if self.connector.new_data or self.buffer.is_not_empty:
 
-                bytes_ = self.connector.execute_bytes()
-                self.buffer.update(bytes_)
+                self.buffer.update(self.connector.execute_bytes())
 
-                packet = self._get_packet()
+                result = self.parser.parsing(
+                    buffer=self.buffer,
+                    protocol=self.protocol,
+                    unit=self.unit,
+                )
 
-                if not packet:
+                if not result:
                     continue
 
-                status, messages = await self._analyze_packet(packet)
+                status, messages, packet = result
+
+                if status.correct and not self.unit.is_authorized:
+                    status = await self._authorization(
+                        status=status,
+                        unit=self.unit,
+                    )
 
                 answer = status.make_answer(
                     handler=self.protocol,
-                    meta=self.metadata
+                    unit=self.unit,
                 )
 
                 if not status.correct:
                     await self.connector.send(answer)
                     break
 
+                ip, port = self.connector.address
                 await self._publish(
                     messages=messages,
-                    packet=packet,
+                    packet=Packet(
+                        packet=packet,
+                        client_port=port,
+                        client_ip=ip,
+                        time_received=datetime.now(),
+                    ),
                     answer=answer,
                 )
 
                 await self.connector.send(answer)
 
             else:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.05)
 
             if self.connector.is_not_alive:
                 break
@@ -122,8 +122,7 @@ class ClientConnection:
 
     async def send_command(self, command, **kwargs) -> Command:
         ready_command = self.protocol.create_command(
-            imei=self.authorization.imei,
-            meta=self.metadata,
+            unit=self.unit,
             command=command,
         )
 
@@ -142,122 +141,25 @@ class ClientConnection:
         if messages:
             await self.data_manager.messages.put(
                 Data(
-                    message=[messages]
-                    if isinstance(messages, DataManager)
-                    else messages,
+                    unit=self.unit,
+                    message=messages,
                     answer=answer,
                     packet=packet,
                 )
             )
 
-    def _get_packet(self) -> Optional[Packet]:
-        packet = self._get_full(
-            is_authorized=self.authorization.is_authorized
-        )
-
-        if not packet:
-            return None
-
-        ip, port = self.connector.address
-
-        return Packet(
-            packet=packet,
-            client_port=port,
-            client_ip=ip,
-        )
-
-    def _get_full(self, is_authorized=True) -> Optional[bytes]:
-        message = self.buffer.get_all()
-
-        if is_authorized:
-            start = self.protocol.START_BIT_PACKET
-            end = self.protocol.END_BIT_PACKET
-            length = self.protocol.LEN_PACKET
-        else:
-            start = self.protocol.START_BIT_LOGIN
-            end = self.protocol.END_BIT_LOGIN
-            length = self.protocol.LEN_LOGIN
-
-        if start:
-            if message.startswith(start):
-                start_ind = 0
-            elif find := message.find(start) >= 0:
-                start_ind = find
-            else:
-                self.buffer.clear()
-                return None
-
-        if end:
-            if message.endswith(end):
-                end_ind = len(message)
-            elif find := message.find(end) > 0:
-                end_ind = find
-            else:
-                return None
-
-        # if start and end and length:
-        #     message_ = None
-        #     if length == len(message):
-        #         message_ = message
-        #
-        #     self.buffer.clear(length)
-        #     return message_
-        # elif start and end:
-        #     return message[start_ind:end_ind]
-        # else:
-            ...
-            # if is_authorized:
-            #         start, end = self.protocol.custom_start_end_packet(
-            #             bytes_=message,
-            #         )
-            #     else:
-            #         start, end = self.protocol.custom_start_end_login(
-            #             bytes_=message
-            #         )
-        return None
-
-    async def _analyze_packet(
+    async def _authorization(
             self,
-            packet: Packet
-    ) -> tuple[Status, MessageAnnotated]:
-        """
-        Entry point for analyze packet
-        :param packet: bytes
-        :return: tuple[Status, Optional[list[dict]]
-        """
-        if self.authorization.is_authorized:
-            return await self._analyze_data_packet(packet)
-        else:
-            return await self._analyze_login_packet(packet)
-
-    @exception_wrapper
-    async def _analyze_login_packet(
-            self,
-            login_packet: Packet
-    ) -> tuple[StatusAuth, MessageAnnotated]:
-        """
-        Make parsing login packet
-        Check unit is register in system
-        :param login_packet: bytes
-        :return: tuple[StatusAuth, None]
-        """
-
-        status = StatusAuth()
-
-        status.crc = self.protocol.check_crc_login(
-            login_packet.packet,
-            meta=self.metadata,
-        )
-        packets = self.protocol.parsing_login_packet(
-            login_packet.packet,
-            meta=self.metadata,
-        )
-
+            status: Status,
+            unit: Unit
+    ) -> Status:
         try:
-            await self.authorization.authorized_in_system(
-                imei=packets.imei,
-                password=packets.password,
+            unit_id = await self.authorization.authorized_in_system(
+                imei=unit.imei,
+                protocol=self.protocol.TYPE,
+                password=unit.password,
             )
+            unit.id = unit_id
         except UnitNotExist as e:
             status.authorization = False
             status.error = str(e)
@@ -269,34 +171,6 @@ class ClientConnection:
             status.authorization = True
             status.password = True
 
-            await self.data_manager.messages.put(
-                f'New unit {self.authorization.imei} {self.authorization.id}'
-            )
+            await self.data_manager.new_connections.put(unit)
 
-        logging.debug(f"Unit: {self.authorization.imei} {status}")
-
-        return status, packets.messages
-
-    @exception_wrapper
-    async def _analyze_data_packet(
-            self,
-            data_packet: Packet
-    ) -> tuple[StatusParsing, MessageAnnotated]:
-        """
-        Analyze data_packet
-        Packet parsed by protocol_handler
-        :param data_packet:  bytes
-        :return:  tuple[StatusParsing, MessageAnnotated]
-        """
-
-        status = StatusParsing()
-        status.crc = self.protocol.check_crc_data(
-            data_packet.packet,
-            meta=self.metadata
-        )
-        packets = self.protocol.parsing_packet(
-            data_packet.packet,
-            meta=self.metadata
-        )
-
-        return status, packets
+        return status

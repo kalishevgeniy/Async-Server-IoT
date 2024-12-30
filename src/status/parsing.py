@@ -10,9 +10,13 @@ if TYPE_CHECKING:
 class StatusParsing(Status):
     __slots__ = "err", "crc"
 
-    def __init__(self):
-        self.err = None
-        self.crc = None
+    def __init__(
+            self,
+            crc: bool = False,
+            err: bool = False,
+    ):
+        self.err = err
+        self.crc = crc
 
     @property
     def correct(self) -> bool:
@@ -28,7 +32,6 @@ class StatusParsing(Status):
     ) -> Optional[bytes]:
         if self.correct:
             return handler.answer_packet(
-                *args,
                 status=self,
                 **kwargs
             )

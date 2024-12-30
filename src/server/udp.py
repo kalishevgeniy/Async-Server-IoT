@@ -1,17 +1,18 @@
 import asyncio
 import logging
 import time
-from asyncio import DatagramTransport, transports
+from asyncio import DatagramTransport
 from typing import Optional
 
-from src.auth.abstract import AbstractAuthorization, T
-from src.client.connections.connection import ClientConnection, Command
+from src.auth.abstract import AbstractAuthorization
+from src.client.connections.connection import ClientConnection, Command, Data
 from src.client.connections.connections import ClientConnections
 from src.client.connector.udp import ConnectorUDP
 from src.protocol.abstract import AbstractProtocol
 from src.server.abstract import ServerAbstract
 from src.utils.config import ServerConfig
-from src.utils.datamanager import DataManager, MessagesIter, NewConnectionsIter
+from src.utils.datamanager import DataManager, QueueIter
+from src.utils.unit import Unit
 
 
 class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
@@ -29,7 +30,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
         self._protocol = protocol
         self._server_is_work: asyncio.Event = asyncio.Event()
 
-        self.__connections_addresses = dict()
+        self.__connections_addresses: dict = dict()
 
     def connection_made(self, transport: DatagramTransport):  # type: ignore
         self._transport = transport
@@ -79,17 +80,17 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
     async def run(self):
         await asyncio.sleep(0)
 
-    async def send_command(self, command: bytes, unit_id: T) -> Command:
+    async def send_command(self, command: bytes, unit_id) -> Command:
         client_connection = self._client_connections.find(unit_id)
         command_send = await client_connection.send_command(command)
         return command_send
 
     @property
-    def messages(self) -> MessagesIter:
+    def messages(self) -> QueueIter[Data]:
         return self._data_manager.messages
 
     @property
-    def new_connection(self) -> NewConnectionsIter:
+    def new_connection(self) -> QueueIter[Unit]:
         return self._data_manager.new_connections
 
 
@@ -101,10 +102,11 @@ class UDPServer(ServerAbstract):
             authorization: AbstractAuthorization,
     ):
         self._config = config
-        self._protocol_parsing = protocol
-        self._authorization = authorization
 
-        self._protocol: Optional[UDPServerProtocol] = None
+        self._server = UDPServerProtocol(
+                protocol=protocol,
+                authorization=authorization,
+        )
         self._messages = DataManager()
 
     async def run(self):
@@ -112,24 +114,20 @@ class UDPServer(ServerAbstract):
 
         # One protocol instance will be created to serve all
         # client requests.
-        _, self._protocol = await loop.create_datagram_endpoint(
-            lambda: UDPServerProtocol(
-                protocol=self._protocol,
-                authorization=self._authorization,
-            ),
-            local_addr=(str(self._config.host), self._config.port)
+        _, self._server = await loop.create_datagram_endpoint(
+            lambda: self._server
         )
 
     async def stop(self):
-        await self._protocol.stop()
+        await self._server.stop()
 
-    async def send_command(self, command: bytes, unit_id: T) -> Command:
-        return await self._protocol.send_command(command, unit_id)
-
-    @property
-    def messages(self) -> MessagesIter:
-        return self._protocol.messages
+    async def send_command(self, command: bytes, unit_id) -> Command:
+        return await self._server.send_command(command, unit_id)
 
     @property
-    def new_connection(self) -> NewConnectionsIter:
-        return self._protocol.new_connection
+    def messages(self) -> QueueIter[Data]:
+        return self._server.messages
+
+    @property
+    def new_connection(self) -> QueueIter[Unit]:
+        return self._server.new_connection

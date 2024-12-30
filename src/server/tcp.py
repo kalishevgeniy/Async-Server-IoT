@@ -3,14 +3,15 @@ import logging
 from asyncio import Server, StreamReader, StreamWriter
 from typing import Optional
 
-from src.auth.abstract import AbstractAuthorization, T
+from src.auth.abstract import AbstractAuthorization
 from src.client.connections.connection import ClientConnection, Command
 from src.client.connections.connections import ClientConnections
 from src.client.connector.tcp import ConnectorTCP
 from src.protocol.abstract import AbstractProtocol
 from src.server.abstract import ServerAbstract
 from src.utils.config import ServerConfig
-from src.utils.datamanager import DataManager
+from src.utils.datamanager import DataManager, QueueIter, Data
+from src.utils.unit import Unit
 
 
 class TCPServer(ServerAbstract):
@@ -28,7 +29,6 @@ class TCPServer(ServerAbstract):
         self._server_is_work = asyncio.Event()
 
         self._client_connections = ClientConnections()
-
         self._data_manager = DataManager()
 
     async def run(self):
@@ -36,32 +36,41 @@ class TCPServer(ServerAbstract):
             self._init_client_connection,
             host=str(self.config.host),
             port=self.config.port,
-            **self.config.model_extra,
+            **self.config.extra,
         )
         await self._server.start_serving()
         self._server_is_work.set()
 
     @property
-    def messages(self):
+    def messages(self) -> QueueIter[Data]:
         return self._data_manager.messages
 
     @property
-    def new_connections(self):
+    def new_connections(self) -> QueueIter[Unit]:
         return self._data_manager.new_connections
 
     async def stop(self):
+        logging.info(
+            f"Stopping server {self._protocol}. Close server connection"
+        )
         await self._soft_stop_server()
 
+        logging.info(
+            f"Stopping server {self._protocol}. Close clients connection"
+        )
         # stop current work task clients
         self._server_is_work.clear()
 
         # cancel current task work and close connection
         await self._client_connections.close_all()
+        logging.info(
+            f"All client connections closed, server {self._protocol} stopped."
+        )
 
     async def send_command(
             self,
             command: bytes,
-            unit_id: T,
+            unit_id,
     ) -> Command:
 
         conn = self._client_connections.find(

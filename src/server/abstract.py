@@ -1,9 +1,7 @@
-from abc import ABCMeta
-
-from src.auth.abstract import T
 from src.client.connections.connection import Command
 from src.server.intraface import ServerInterface
-from src.utils.datamanager import MessagesIter, NewConnectionsIter
+from src.utils.datamanager import QueueIter, Data
+from src.utils.unit import Unit
 
 
 class ServerAbstract(ServerInterface):
@@ -14,13 +12,13 @@ class ServerAbstract(ServerInterface):
     async def stop(self):
         raise NotImplementedError
 
-    async def send_command(self, command: bytes, unit_id: T) -> Command:
+    async def send_command(self, command: bytes, unit_id) -> Command:
         raise NotImplementedError
 
     @property
-    def messages(self) -> MessagesIter:
+    def messages(self) -> QueueIter[Data]:
         raise NotImplementedError
 
     @property
-    def new_connection(self) -> NewConnectionsIter:
+    def new_connection(self) -> QueueIter[Unit]:
         raise NotImplementedError
