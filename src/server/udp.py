@@ -21,16 +21,18 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
             self,
             protocol,
             authorization: AbstractAuthorization,
+            config: ServerConfig
     ):
         self._transport: Optional[DatagramTransport] = None
         self._data_manager = DataManager()
         self._authorization = authorization
         self._client_connections = ClientConnections()
+        self._config = config
 
         self._protocol = protocol
         self._server_is_work: asyncio.Event = asyncio.Event()
 
-        self.__connections_addresses: dict = dict()
+        self._connection_objects: dict = dict()
 
     def connection_made(self, transport: DatagramTransport):  # type: ignore
         self._transport = transport
@@ -45,27 +47,56 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
     def resume_writing(self):
         logging.exception(f'UDP resume writing {self}')
 
+    async def _run_client_connection(
+            self,
+            client_connection: ClientConnection
+    ):
+        try:
+            _runtime = time.time()
+
+            client_loop_task = asyncio.create_task(
+                client_connection.run_client_loop()
+            )
+            while (
+                    client_loop_task.done()
+                    or
+                    _runtime + self._config.timeout > time.time()
+            ):
+                await asyncio.sleep(1)
+
+            if client_loop_task.exception():
+                raise client_loop_task.exception()
+
+        except NotImplementedError as e:
+            logging.exception(f"Warning! Method not implemented {e}")
+        except Exception as e:
+            logging.exception(f"Unknown exception! {e}")
+        finally:
+            await client_connection.close_connection()
+
+            logging.debug(f"Client disconnect {client_connection}")
+            self._client_connections.remove(client_connection)
+
     def datagram_received(self, data, addr):
-        if addr not in self.__connections_addresses:
+        if addr not in self._connection_objects:
             client_connection = ClientConnection(
                 data_manager=self._data_manager,
                 server_status=self._server_is_work,
                 authorization=self._authorization,
                 protocol=self._protocol,
+                config=self._config,
                 connector=ConnectorUDP(
                     address=addr,
                     transport=self._transport
                 ),
             )
-            task = asyncio.create_task(client_connection.run_client_loop())
-            self._client_connections.add(client_connection)
-            self.__connections_addresses[addr] = (
-                client_connection,
-                task,
-                time.time()
-            )
+            asyncio.create_task(client_connection.run_client_loop())
+
+            self._client_connections.add(connection=client_connection)
+            self._connection_objects[addr] = client_connection
+
         else:
-            client_connection = self.__connections_addresses[addr][0]
+            client_connection = self._connection_objects[addr]
 
         client_connection.buffer.update(data)
 
@@ -90,7 +121,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
         return self._data_manager.messages
 
     @property
-    def new_connection(self) -> QueueIter[Unit]:
+    def new_connections(self) -> QueueIter[Unit]:
         return self._data_manager.new_connections
 
 
@@ -101,12 +132,12 @@ class UDPServer(ServerAbstract):
             protocol: AbstractProtocol,
             authorization: AbstractAuthorization,
     ):
-        self._config = config
-
         self._server = UDPServerProtocol(
                 protocol=protocol,
                 authorization=authorization,
+                config=config
         )
+        self.config = config
         self._messages = DataManager()
 
     async def run(self):
@@ -115,7 +146,8 @@ class UDPServer(ServerAbstract):
         # One protocol instance will be created to serve all
         # client requests.
         _, self._server = await loop.create_datagram_endpoint(
-            lambda: self._server
+            lambda: self._server,
+            local_addr=(str(self.config.host), self.config.port)
         )
 
     async def stop(self):
@@ -129,5 +161,6 @@ class UDPServer(ServerAbstract):
         return self._server.messages
 
     @property
-    def new_connection(self) -> QueueIter[Unit]:
-        return self._server.new_connection
+    def new_connections(self) -> QueueIter[Unit]:
+        return self._server.new_connections
+

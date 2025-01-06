@@ -19,8 +19,8 @@ class ClientConnections:
     def remove(self, connection: ClientConnection):
         if connection.unit.id in self._client_connections:
             self._client_connections.pop(connection.unit.id, None)
-        elif connection.unit.id in self._unregistered_connections:
-            self._unregistered_connections.remove(connection.unit.id)
+        elif connection in self._unregistered_connections:
+            self._unregistered_connections.remove(connection)
 
     def find(
             self,
@@ -45,7 +45,7 @@ class ClientConnections:
         self._unregistered_connections = set()
 
     def _register_new_connection(self):
-        for un_conn in self._unregistered_connections:
+        for un_conn in tuple(self._unregistered_connections):
             if un_conn.unit.id:
                 self._client_connections[un_conn.unit.id] = un_conn
                 self._unregistered_connections.discard(un_conn)

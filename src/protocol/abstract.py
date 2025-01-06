@@ -4,7 +4,6 @@ from venv import logger
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface, MessageAnnotated
 from ..utils.message import LoginMessage
-from ..utils.meta import MetaData
 from ..utils.unit import Unit
 
 

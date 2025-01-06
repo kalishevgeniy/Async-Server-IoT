@@ -32,6 +32,8 @@ class TCPServer(ServerAbstract):
         self._data_manager = DataManager()
 
     async def run(self):
+        logging.info(f"Start server {self._protocol}")
+
         self._server = await asyncio.start_server(
             self._init_client_connection,
             host=str(self.config.host),

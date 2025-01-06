@@ -26,7 +26,14 @@ class StatusAuth(Status):
         self._description = description
 
     def __repr__(self):
-        return f"Status authorization: {self.correct} {self._description}"
+        return (
+            f"<StatusAuth: "
+            f"{self.crc=} "
+            f"{self.authorization=} "
+            f"{self.password=} "
+            f"{self.error=} "
+            f"{self._description=}>"
+        )
 
     @property
     def correct(self) -> bool:

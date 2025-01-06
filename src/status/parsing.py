@@ -18,6 +18,14 @@ class StatusParsing(Status):
         self.err = err
         self.crc = crc
 
+    def __repr__(self):
+        return (
+            f"StatusParsing("
+            f"err={self.err}, "
+            f"crc={self.crc}"
+            f")"
+        )
+
     @property
     def correct(self) -> bool:
         return all((

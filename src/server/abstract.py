@@ -20,5 +20,5 @@ class ServerAbstract(ServerInterface):
         raise NotImplementedError
 
     @property
-    def new_connection(self) -> QueueIter[Unit]:
+    def new_connections(self) -> QueueIter[Unit]:
         raise NotImplementedError

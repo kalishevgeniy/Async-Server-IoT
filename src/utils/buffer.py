@@ -64,6 +64,7 @@ class Buffer:
                 self._is_not_empty = False
 
         else:
+            self._is_not_empty = False
             self._message = bytearray()
 
     def get_all(self) -> bytes:

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime
 
 from src.auth.abstract import (
@@ -94,6 +95,7 @@ class ClientConnection:
                 )
 
                 if not status.correct:
+                    logging.info(f'Problems with package analysis {status}.')
                     await self.connector.send(answer)
                     break
 

@@ -8,7 +8,6 @@ from src.protocol.interface import MessageAnnotated
 from src.status.auth import StatusAuth
 from src.status.parsing import StatusParsing
 from src.utils.message import Message, LoginMessage, Navigation, LBS
-from src.utils.meta import MetaData
 from src.utils.unit import Unit
 
 

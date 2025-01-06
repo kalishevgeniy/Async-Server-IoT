@@ -18,10 +18,10 @@ class StatusException(Status):
     def __init__(
             self,
             err: bool,
-            err_type: Exception,
-            err_args: tuple,
-            err_str: str,
-            err_func_name: str
+            err_args: Optional[tuple],
+            err_str: Optional[str],
+            err_func_name: Optional[str],
+            err_type: Optional[Exception],
     ):
         self._err = err
         self.err_type = err_type
@@ -30,7 +30,7 @@ class StatusException(Status):
         self.err_func_name = err_func_name
 
     def __repr__(self):
-        return repr(self)
+        return f"<StatusException {self.err_type}>"
 
     @property
     def correct(self) -> bool:
@@ -48,7 +48,7 @@ class StatusException(Status):
 def exception_wrapper(func):
 
     @wraps(func)
-    def exception_analyze(
+    def wrapper(
             *args,
             **kwargs
     ) -> tuple[StatusException, Optional[Any], bytes]:
@@ -58,8 +58,9 @@ def exception_wrapper(func):
             logging.error(
                 f"Parsing exception {e} \n"
                 f"arguments {(args, kwargs)} \n"
-                f"traceback {tb()}"
             )
+            logging.debug(tb())
+
             status = StatusException(
                 err=True,
                 err_type=e,
@@ -67,8 +68,7 @@ def exception_wrapper(func):
                 err_str=str(e),
                 err_func_name=func.__name__
             )
-            func(*args, **kwargs)
 
             return status, None, b''
 
-    return exception_analyze
+    return wrapper

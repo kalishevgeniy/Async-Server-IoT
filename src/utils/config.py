@@ -11,12 +11,14 @@ class ServerConfig:
             host: Union[str, IPv4Address, IPv6Address],
             port: int,
             local_buffer_size: int = 1024 * 1024,
+            timeout: int = 1200,
             queue_size: int = 10_000,
             **kwargs
     ):
         self.host = host                                # type: ignore
         self.port = port
         self.local_buffer_size = local_buffer_size
+        self.timeout = timeout
         self.queue_size = queue_size
 
         self.__attrs = dict()
@@ -58,19 +60,3 @@ class ServerConfig:
     def port(self, value):
         assert 0 < value <= 65535
         self._port = value
-
-
-if __name__ == '__main__':
-    config = ServerConfig(
-        host='0.0.0.0',
-        port=2424,
-        setting1=12,
-        setting2=4124,
-    )
-
-    config2 = ServerConfig(
-        host='0.0.0.0',
-        port=2424,
-    )
-    print(config.setting1)
-    print(config2)

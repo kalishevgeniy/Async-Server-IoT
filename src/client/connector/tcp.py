@@ -22,20 +22,16 @@ class ConnectorTCP(ConnectorAbstract):
         self.reader = reader
         self.writer = writer
 
-        self._reader_queue: Queue[bytes] = Queue(maxsize=5)
+        self._reader_queue: Queue[bytes] = Queue()
         self._task_reader = asyncio.create_task(self._reader_from_socket())
 
     @property
     def is_not_alive(self) -> bool:
-        if self._task_reader.done():
-            return True
-        return False
+        return self._task_reader.done()
 
     @property
     def new_data(self) -> bool:
-        if self._reader_queue.empty():
-            return False
-        return True
+        return not self._reader_queue.empty()
 
     def execute_bytes(self) -> bytes:
         bytes_ = bytes()
@@ -47,13 +43,16 @@ class ConnectorTCP(ConnectorAbstract):
         return self.writer.get_extra_info('socket')
 
     async def _reader_from_socket(self):
-        while True:
-            data = await self.reader.read(1024)
+        try:
+            while True:
+                data = await self.reader.read(1024)
 
-            if not data:
-                return True
+                if not data:
+                    return True
 
-            await self._reader_queue.put(data)
+                await self._reader_queue.put(data)
+        except asyncio.CancelledError:
+            raise
 
     @property
     def address(self) -> tuple[str, int]:
