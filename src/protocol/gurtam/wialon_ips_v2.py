@@ -139,27 +139,26 @@ class WialonIPSv2(AbstractProtocol):
         if hdop_ := float(hdop) if hdop != self._EMPTY else None:
             message.lbs = LBS(hdop=hdop_)
 
-        message.parameters = dict()
-        message.parameters.update(**{
+        message.parameters.update({
             'ibutton': str(ibutton) if ibutton != self._EMPTY else None
         })
 
         if self._EMPTY != inputs and inputs:
-            message.parameters.update(**{
+            message.parameters.update({
                 f"in_{num}": int(val)
                 for num, val
                 in enumerate(f"{int(inputs):b}"[::-1])
             })
 
         if self._EMPTY != outputs and outputs:
-            message.parameters.update(**{
+            message.parameters.update({
                 f"out_{num}": int(val)
                 for num, val
                 in enumerate(f"{int(outputs):b}"[::-1])
             })
 
         if self._EMPTY != adc and adc:
-            message.parameters.update(**{
+            message.parameters.update({
                 f"adc_{num}": float(val)
                 for num, val
                 in enumerate(adc.split(b','))
@@ -177,7 +176,7 @@ class WialonIPSv2(AbstractProtocol):
                             "value": str(p_val)
                         }
                     )
-            message.parameters.update(**{'parameters': list_parameters})
+            message.parameters.update({'parameters': list_parameters})
         return message
 
     def _parse_packet_b(self, bytes_: bytes) -> list[Message]:

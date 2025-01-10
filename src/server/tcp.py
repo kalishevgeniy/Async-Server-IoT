@@ -51,6 +51,10 @@ class TCPServer(ServerAbstract):
     def new_connections(self) -> QueueIter[Unit]:
         return self._data_manager.new_connections
 
+    @property
+    def disconnects(self) -> QueueIter[Unit]:
+        return self._data_manager.disconnects
+
     async def stop(self):
         logging.info(
             f"Stopping server {self._protocol}. Close server connection"
@@ -91,7 +95,11 @@ class TCPServer(ServerAbstract):
             data_manager=self._data_manager,
             protocol=self._protocol,
             authorization=self._authorization,
-            connector=ConnectorTCP(reader=reader, writer=writer),
+            connector=ConnectorTCP(
+                reader=reader,
+                writer=writer,
+                timeout=self.config.timeout
+            ),
             server_status=self._server_is_work,
             config=self.config,
             **kwargs
@@ -112,6 +120,8 @@ class TCPServer(ServerAbstract):
             # use for keeping connection
             logging.debug(f"Client disconnect {client_conn}")
             self._client_connections.remove(client_conn)
+
+            await self._data_manager.disconnects.put(client_conn.unit)
 
     async def _soft_stop_server(self):
         self._server.close()

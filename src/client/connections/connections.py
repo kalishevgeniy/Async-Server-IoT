@@ -1,5 +1,8 @@
 import asyncio
+import logging
+from functools import wraps
 
+from src.auth.abstract import Authorization
 from src.client.connections.connection import ClientConnection
 
 
@@ -13,7 +16,31 @@ class ClientConnections:
         self._client_connections: [int, ClientConnection] = dict()
         self._unregistered_connections: set[ClientConnection] = set()
 
+    def _monkey_patch_auth(self, func, connection):
+
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                unit_id = await func(*args, **kwargs)
+            except Authorization as e:
+                raise
+
+            if unit_id in self._client_connections:
+                conn = self._client_connections[unit_id]
+                logging.info(f'Close old connection {conn}')
+                await conn.close_connection()
+
+            self._unregistered_connections.remove(connection)
+            self._client_connections[unit_id] = connection
+
+            return unit_id
+        return wrapper
+
     def add(self, connection: ClientConnection):
+        connection.authorization.authorized_in_system = self._monkey_patch_auth(
+            func=connection.authorization.authorized_in_system,
+            connection=connection
+        )
         self._unregistered_connections.add(connection)
 
     def remove(self, connection: ClientConnection):
@@ -26,8 +53,6 @@ class ClientConnections:
             self,
             unit_id: int,
     ) -> ClientConnection:
-        self._register_new_connection()
-
         if unit_id in self._client_connections:
             return self._client_connections[unit_id]
 
@@ -43,9 +68,3 @@ class ClientConnections:
 
         self._client_connections = dict()
         self._unregistered_connections = set()
-
-    def _register_new_connection(self):
-        for un_conn in tuple(self._unregistered_connections):
-            if un_conn.unit.id:
-                self._client_connections[un_conn.unit.id] = un_conn
-                self._unregistered_connections.discard(un_conn)

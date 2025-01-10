@@ -1,4 +1,5 @@
 import asyncio
+import time
 from asyncio import StreamReader, StreamWriter, Queue
 
 import logging
@@ -11,23 +12,37 @@ class ConnectorTCP(ConnectorAbstract):
     __slots__ = (
         "reader", "writer",
         "_reader_queue",
-        "_task_reader"
+        "_task_reader",
+        "timeout",
+        "_timeout_timestamp",
+        "size",
     )
 
     def __init__(
             self,
             reader: StreamReader,
-            writer: StreamWriter
+            writer: StreamWriter,
+            timeout: int = 1200,  # default 10 min
+            size: int = 1024    # buffer size
     ):
         self.reader = reader
         self.writer = writer
+
+        self.timeout = timeout
+        self._timeout_timestamp = timeout + int(time.time())
+
+        self.size = size
 
         self._reader_queue: Queue[bytes] = Queue()
         self._task_reader = asyncio.create_task(self._reader_from_socket())
 
     @property
     def is_not_alive(self) -> bool:
-        return self._task_reader.done()
+        return (
+            self._task_reader.done()
+            or
+            int(time.time()) > self._timeout_timestamp
+        )
 
     @property
     def new_data(self) -> bool:
@@ -45,12 +60,14 @@ class ConnectorTCP(ConnectorAbstract):
     async def _reader_from_socket(self):
         try:
             while True:
-                data = await self.reader.read(1024)
+                data = await self.reader.read(self.size)
 
                 if not data:
                     return True
 
                 await self._reader_queue.put(data)
+                self._timeout_timestamp = self.timeout + int(time.time())
+
         except asyncio.CancelledError:
             raise
 
@@ -77,11 +94,6 @@ class ConnectorTCP(ConnectorAbstract):
             logging.debug(_exception)
 
     async def send(self, data: bytes):
-        """
-        Send packets to writer queue
-        :param data: bytes
-        :return: None
-        """
         if self.is_not_alive:
             raise Exception("Connection was closed")
 

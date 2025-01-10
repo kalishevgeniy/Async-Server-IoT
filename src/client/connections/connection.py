@@ -74,7 +74,6 @@ class ClientConnection:
 
                 result = self.parser.parsing(
                     buffer=self.buffer,
-                    protocol=self.protocol,
                     unit=self.unit,
                 )
 
@@ -119,6 +118,8 @@ class ClientConnection:
             if self.connector.is_not_alive:
                 break
 
+        self.unit.disconnected_at = datetime.now()
+
     async def close_connection(self):
         await self.connector.close_connection()
 
@@ -144,7 +145,7 @@ class ClientConnection:
             await self.data_manager.messages.put(
                 Data(
                     unit=self.unit,
-                    message=messages,
+                    messages=messages,
                     answer=answer,
                     packet=packet,
                 )

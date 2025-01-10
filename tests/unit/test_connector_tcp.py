@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
@@ -38,6 +39,11 @@ async def test_execute_bytes_with_data(connector_tcp):
 async def test_execute_bytes_no_data(connector_tcp):
     result = connector_tcp.execute_bytes()
     assert result == b''
+
+
+def test_is_not_alive_when_timeout_done(connector_tcp):
+    connector_tcp._timeout_timestamp = -1 + int(time.time())
+    assert connector_tcp.is_not_alive is True
 
 
 @pytest.mark.asyncio

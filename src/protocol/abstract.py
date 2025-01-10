@@ -1,5 +1,4 @@
 from typing import Optional
-from venv import logger
 
 from src.status import StatusAuth, StatusException, StatusParsing
 from .interface import ProtocolInterface, MessageAnnotated
@@ -99,8 +98,4 @@ class AbstractProtocol(ProtocolInterface):
             command: bytes,
             unit: Unit,
     ) -> bytes:
-        logger.debug(
-            f"Send default command to object {unit.imei}"
-            f" with command {command.decode()}"
-        )
         return command

@@ -12,7 +12,7 @@ from src.utils.unit import Unit
 
 
 @dataclass
-class SizeCleanerDataclass:
+class SizeCleaner:
     need_clear: bool = field(default=True)
     clear_start: int = field(default=0)
     clear_end: int = field(default=-1)
@@ -30,7 +30,7 @@ class PacketParser:
     def __repr__(self):
         return f"<Packet parser ({self._p.TYPE})>"
 
-    def __get_login_parser(self) -> Callable[[bytes], SizeCleanerDataclass]:
+    def __get_login_parser(self) -> Callable[[bytes], SizeCleaner]:
         return self.__get_parser(
             start=self._p.START_BIT_LOGIN,
             end=self._p.END_BIT_LOGIN,
@@ -38,7 +38,7 @@ class PacketParser:
             custom=self._p.custom_start_end_login
         )
 
-    def __get_packet_parser(self) -> Callable[[bytes], SizeCleanerDataclass]:
+    def __get_packet_parser(self) -> Callable[[bytes], SizeCleaner]:
         return self.__get_parser(
             start=self._p.START_BIT_PACKET,
             end=self._p.END_BIT_PACKET,
@@ -48,18 +48,18 @@ class PacketParser:
 
     def __get_parser(
             self,
-            start: bytes,
-            end: bytes,
-            len_: int,
-            custom: Callable
-    ) -> Callable[[bytes], SizeCleanerDataclass]:
-        if all((start, end, len_)):
+            custom: Callable,
+            len_: Optional[int] = None,
+            start: Optional[bytes] = None,
+            end: Optional[bytes] = None,
+    ) -> Callable[[bytes], SizeCleaner]:
+        if start and end and len_:
             return self.__start_end_len(
                 start=start,
                 end=end,
                 len_=len_
             )
-        elif all((start, end)):
+        elif start and end:
             return self.__start_end(
                 start=start,
                 end=end,
@@ -72,12 +72,12 @@ class PacketParser:
             start: bytes,
             end: bytes,
             len_: int
-    ) -> Callable[[bytes], SizeCleanerDataclass]:
+    ) -> Callable[[bytes], SizeCleaner]:
         START = start
         END = end
         LEN = len_
 
-        def func(bytes_: bytes) -> SizeCleanerDataclass:
+        def func(bytes_: bytes) -> SizeCleaner:
             start_ = 0
             while True:
 
@@ -85,7 +85,7 @@ class PacketParser:
                     index = bytes_.find(START, start_)
 
                     if index == -1:
-                        return SizeCleanerDataclass(
+                        return SizeCleaner(
                             need_clear=True
                         )
                     else:
@@ -93,7 +93,7 @@ class PacketParser:
                         continue
 
                 if len(bytes_[start_:]) < LEN:
-                    return SizeCleanerDataclass(
+                    return SizeCleaner(
                         need_clear=True,
                         clear_end=start_,
                     )
@@ -101,14 +101,14 @@ class PacketParser:
                 s = start_ + LEN
                 full = s + len(END)
                 if bytes_[s:full] == END:
-                    return SizeCleanerDataclass(
+                    return SizeCleaner(
                         need_clear=True,
                         clear_end=full,
                         start=start_,
                         end=full,
                     )
                 else:
-                    return SizeCleanerDataclass(
+                    return SizeCleaner(
                         need_clear=True,
                         clear_end=full,
                     )
@@ -119,11 +119,11 @@ class PacketParser:
     def __start_end(
             start: bytes,
             end: bytes,
-    ) -> Callable[[bytes], SizeCleanerDataclass]:
+    ) -> Callable[[bytes], SizeCleaner]:
         START = start
         END = end
 
-        def func(bytes_: bytes) -> SizeCleanerDataclass:
+        def func(bytes_: bytes) -> SizeCleaner:
             start_ = 0
             end_ = 0
             while True:
@@ -132,7 +132,7 @@ class PacketParser:
                     index = bytes_.find(START, start_)
 
                     if index == -1:
-                        return SizeCleanerDataclass(need_clear=True)
+                        return SizeCleaner(need_clear=True)
                     else:
                         start_ += index
                         end_ += index
@@ -141,13 +141,13 @@ class PacketParser:
                 index = bytes_.find(END, start_)
 
                 if index == -1:
-                    return SizeCleanerDataclass(
+                    return SizeCleaner(
                         need_clear=True,
                         clear_end=start_,
                     )
 
                 packet_len = len(bytes_[:index + len(END)])
-                return SizeCleanerDataclass(
+                return SizeCleaner(
                     need_clear=True,
                     clear_end=packet_len,
                     start=start_,
@@ -160,7 +160,6 @@ class PacketParser:
     def parsing(
             self,
             buffer: Buffer,
-            protocol: AbstractProtocol,
             unit: Unit,
     ) -> Optional[tuple[Status, MessageAnnotated, bytes]]:
 
@@ -181,14 +180,14 @@ class PacketParser:
         if unit.is_authorized:
             status, messages = self._analyze_data_packet(
                 data_packet=bytes_,
-                protocol=protocol,
+                protocol=self._p,
                 unit=unit,
             )
             return status, messages, bytes_
         else:
             status, login_packet = self._analyze_login_packet(
                 login_packet=bytes_,
-                protocol=protocol,
+                protocol=self._p,
                 unit=unit,
             )
             unit.imei = login_packet.imei

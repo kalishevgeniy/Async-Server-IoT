@@ -57,11 +57,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
             client_loop_task = asyncio.create_task(
                 client_connection.run_client_loop()
             )
-            while (
-                    client_loop_task.done()
-                    or
-                    _runtime + self._config.timeout > time.time()
-            ):
+            while client_loop_task.done():
                 await asyncio.sleep(1)
 
             if client_loop_task.exception():
@@ -87,7 +83,8 @@ class UDPServerProtocol(asyncio.DatagramProtocol, ServerAbstract):
                 config=self._config,
                 connector=ConnectorUDP(
                     address=addr,
-                    transport=self._transport
+                    transport=self._transport,
+                    timeout=self._config.timeout
                 ),
             )
             asyncio.create_task(client_connection.run_client_loop())

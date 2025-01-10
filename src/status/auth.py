@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 
 class StatusAuth(Status):
-    __slots__ = "_crc", "_authorization", "_password", "_error"
+    __slots__ = "crc", "authorization", "password", "error", "_description"
 
     def __init__(
             self,

@@ -8,7 +8,7 @@ addr = Union[IPv4Address, IPv6Address]
 class ServerConfig:
     def __init__(
             self,
-            host: Union[str, IPv4Address, IPv6Address],
+            host: Union[str, IPv4Address, IPv6Address, IPvAnyAddress],
             port: int,
             local_buffer_size: int = 1024 * 1024,
             timeout: int = 1200,

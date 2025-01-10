@@ -50,3 +50,11 @@ class ServerInterface(object, metaclass=ABCMeta):
         :return: NewConnectionsIter
         """
         raise NotImplementedError
+
+    @property
+    def disconnects(self) -> QueueIter[Unit]:
+        """
+        Return units disconnects iterator
+        :return: NewConnectionsIter
+        """
+        raise NotImplementedError

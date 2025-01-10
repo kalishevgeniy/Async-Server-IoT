@@ -13,6 +13,7 @@ import logging
 from ..interface import MessageAnnotated
 from ...utils.message import LoginMessage, Message, Navigation
 from ...utils.meta import MetaData
+from ...utils.unit import Unit
 
 
 def batched(iterable, n):
@@ -41,7 +42,7 @@ class Teltonika(AbstractProtocol):
     def parsing_login_packet(
             self,
             bytes_: bytes,
-            meta: MetaData
+            unit: Unit,
     ) -> LoginMessage:
         return LoginMessage(
             imei=bytes_.decode(),
@@ -50,21 +51,21 @@ class Teltonika(AbstractProtocol):
     def answer_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData
+            unit: Unit,
     ) -> bytes:
         return b'\x01'
 
     def answer_failed_login_packet(
             self,
             status: StatusAuth,
-            meta: MetaData,
+            unit: Unit,
     ) -> Optional[bytes]:
         return b'\x00'
 
     def check_crc_data(
             self,
             bytes_: bytes,
-            meta: MetaData,
+            unit: Unit,
     ) -> bool:
         return (
                 crc16.arc(bytes_[4:-4])
@@ -75,7 +76,7 @@ class Teltonika(AbstractProtocol):
     def parsing_packet(
             self,
             bytes_data: bytes,
-            meta: MetaData,
+            unit: Unit,
     ) -> MessageAnnotated:
 
         len_packet = len(bytes_data) - 11
@@ -83,7 +84,7 @@ class Teltonika(AbstractProtocol):
             f'>4x2B{len_packet}x1s4x',
             bytes_data
         )
-        meta.all_count_packet = number_data_2
+        unit.metadata.all_count_packet = number_data_2
 
         match codec_id:
             case 0x08:
@@ -245,8 +246,8 @@ class Teltonika(AbstractProtocol):
     def answer_packet(
             self,
             status: StatusParsing,
-            meta: MetaData
+            unit: Unit,
     ) -> Optional[bytes]:
         return b''.join(
-            (b'\x00\x00\x00', meta.all_count_packet)
+            (b'\x00\x00\x00', unit.metadata.all_count_packet)
         )

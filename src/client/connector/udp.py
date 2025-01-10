@@ -1,4 +1,5 @@
 import asyncio
+import time
 from asyncio import DatagramTransport
 
 import logging
@@ -11,7 +12,8 @@ class ConnectorUDP(ConnectorAbstract):
     def __init__(
             self,
             address: tuple,
-            transport: DatagramTransport
+            transport: DatagramTransport,
+            timeout: int = 1200  # default 10 min
     ):
         self._ip, self._port = address
 
@@ -20,9 +22,16 @@ class ConnectorUDP(ConnectorAbstract):
 
         self.__transport = transport
 
+        self.timeout = timeout
+        self._timeout_timestamp = timeout + int(time.time())
+
     @property
     def is_not_alive(self) -> bool:
-        return self._is_not_alive
+        return (
+                self._is_not_alive
+                or
+                int(time.time()) > self._timeout_timestamp
+        )
 
     @property
     def new_data(self) -> bool:
@@ -52,3 +61,4 @@ class ConnectorUDP(ConnectorAbstract):
 
     def update(self, data: bytes):
         self._data += data
+        self._timeout_timestamp = self.timeout + int(time.time())
